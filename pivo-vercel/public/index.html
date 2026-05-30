@@ -8,7 +8,7 @@
   @import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap');
   :root{
     --amber:#d68910;--amber-deep:#b9770e;--foam:#fdf6e3;--dark:#2b1d0e;
-    --cream:#f5e6c8;--green:#4f7942;--shadow:rgba(43,29,14,.25);--gold:#f1c40f;
+    --cream:#f5e6c8;--green:#4f7942;--shadow:rgba(43,29,14,.25);--gold:#f1c40f;--gray:#8a7860;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
   body{font-family:'Fraunces',Georgia,serif;background:radial-gradient(ellipse at top,#e8a93a 0%,#c8861a 40%,#9c640c 100%);color:var(--dark);min-height:100vh;padding:24px 18px 40px;overflow-x:hidden;}
@@ -16,17 +16,42 @@
   .head h1{font-family:'Alfa Slab One',cursive;font-size:2.1rem;line-height:1.05;color:var(--foam);text-shadow:3px 3px 0 var(--amber-deep),5px 5px 0 var(--shadow);letter-spacing:.5px;}
   .head p{color:var(--dark);font-style:italic;margin-top:6px;font-size:1.05rem;opacity:.8;}
 
-  .card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:18px 16px;margin-bottom:14px;box-shadow:6px 6px 0 var(--shadow);}
+  /* sticky leaderboard nahoře při editaci */
+  .stickyboard{position:sticky;top:8px;z-index:30;margin:-6px -6px 16px;padding:10px 8px 8px;border-radius:14px;background:rgba(43,29,14,.92);backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.25);max-height:32vh;overflow-y:auto;display:none;}
+  .stickyboard.show{display:block;}
+  .stickyboard h3{font-family:'Alfa Slab One',cursive;font-size:.95rem;color:var(--gold);text-align:center;margin-bottom:6px;letter-spacing:.5px;}
+  .sb-row{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;color:var(--foam);font-size:.85rem;cursor:pointer;transition:background .12s;}
+  .sb-row:active{background:rgba(253,246,227,.15);}
+  .sb-row .r{font-family:'Alfa Slab One',cursive;color:var(--amber);text-align:center;}
+  .sb-row.top .r{color:var(--gold);}
+  .sb-row .n{font-family:'Alfa Slab One',cursive;font-size:.85rem;}
+  .sb-row .v{font-family:'Alfa Slab One',cursive;font-size:.95rem;}
+
+  .card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:18px 16px;margin-bottom:14px;box-shadow:6px 6px 0 var(--shadow);scroll-margin-top:34vh;}
+  .card.inactive{opacity:.92;border-color:var(--gray);}
+  .card.focus-flash{animation:flash 1.2s ease;}
+  @keyframes flash{0%{box-shadow:0 0 0 0 var(--gold),6px 6px 0 var(--shadow);}40%{box-shadow:0 0 0 6px var(--gold),6px 6px 0 var(--shadow);}100%{box-shadow:0 0 0 0 var(--gold),6px 6px 0 var(--shadow);}}
   .beer-name{font-family:'Alfa Slab One',cursive;font-size:1.3rem;color:var(--amber-deep);margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:space-between;}
   .beer-name .lbl{display:flex;align-items:center;gap:8px;}
   .beer-name .lbl::before{content:"🍺";}
+  .card.inactive .beer-name{color:var(--gray);}
+  .card.inactive .lbl::after{content:"není na čepu";font-family:'Fraunces',serif;font-size:.7rem;font-style:italic;font-weight:400;opacity:.7;margin-left:6px;}
   .clr{font-family:'Fraunces',serif;font-size:.8rem;font-style:italic;color:var(--dark);opacity:.5;background:none;border:none;cursor:pointer;text-decoration:underline;}
+
   .scale{display:flex;flex-wrap:wrap;gap:7px;}
   .scale button.num{flex:1 1 calc(20% - 7px);min-width:46px;aspect-ratio:1;font-family:'Fraunces',serif;font-weight:600;font-size:1.2rem;background:var(--cream);border:2px solid var(--dark);border-radius:12px;color:var(--dark);cursor:pointer;transition:all .12s ease;}
-  .scale button.num:active{transform:scale(.9);}
+  .scale button.num:active:not(:disabled){transform:scale(.9);}
   .scale button.num.sel{background:var(--green);color:var(--foam);transform:scale(1.05);box-shadow:0 0 0 3px var(--foam),0 0 0 5px var(--green);}
+  .scale button.num:disabled{cursor:not-allowed;opacity:.55;}
+  .scale button.num.sel:disabled{background:var(--gray);box-shadow:0 0 0 3px var(--foam),0 0 0 5px var(--gray);}
 
-  .submit{position:sticky;bottom:16px;width:100%;margin-top:20px;padding:18px;font-family:'Alfa Slab One',cursive;font-size:1.3rem;background:var(--dark);color:var(--gold);border:3px solid var(--gold);border-radius:16px;box-shadow:0 6px 0 var(--shadow);cursor:pointer;transition:all .12s;}
+  .note{margin-top:12px;}
+  .note label{font-family:'Fraunces',serif;font-style:italic;font-size:.85rem;color:var(--dark);opacity:.7;display:flex;justify-content:space-between;margin-bottom:4px;}
+  .note textarea{width:100%;font-family:'Fraunces',serif;font-size:.95rem;color:var(--dark);background:var(--cream);border:2px solid var(--dark);border-radius:10px;padding:8px 10px;resize:none;min-height:54px;}
+  .note textarea:focus{outline:none;border-color:var(--green);}
+  .note .cnt{font-size:.75rem;}
+
+  .submit{position:sticky;bottom:16px;width:100%;margin-top:20px;padding:18px;font-family:'Alfa Slab One',cursive;font-size:1.3rem;background:var(--dark);color:var(--gold);border:3px solid var(--gold);border-radius:16px;box-shadow:0 6px 0 var(--shadow);cursor:pointer;transition:all .12s;z-index:10;}
   .submit:active{transform:translateY(3px);box-shadow:0 3px 0 var(--shadow);}
   .submit:disabled{opacity:.4;cursor:not-allowed;}
   .hint{text-align:center;font-style:italic;font-size:.9rem;color:var(--dark);opacity:.65;margin-top:10px;}
@@ -37,10 +62,14 @@
   .vote-wrap.hide{display:none;}
   .bhead{text-align:center;margin-bottom:18px;}
   .bhead h2{font-family:'Alfa Slab One',cursive;font-size:1.6rem;color:var(--foam);text-shadow:2px 2px 0 var(--amber-deep);}
-  .brow{display:grid;grid-template-columns:42px 1fr 64px;align-items:center;gap:10px;background:var(--foam);border:3px solid var(--dark);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:4px 4px 0 var(--shadow);}
+  .bhead .sub{color:var(--dark);font-style:italic;font-size:.85rem;opacity:.7;margin-top:4px;}
+  .brow{display:grid;grid-template-columns:42px 1fr 64px;align-items:center;gap:10px;background:var(--foam);border:3px solid var(--dark);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:4px 4px 0 var(--shadow);cursor:pointer;transition:transform .12s;}
+  .brow:active{transform:translateY(2px);box-shadow:2px 2px 0 var(--shadow);}
   .brow.top{border-color:var(--gold);background:#fff8e1;}
+  .brow.mine{box-shadow:4px 4px 0 var(--shadow),0 0 0 2px var(--green);}
   .brank{font-family:'Alfa Slab One',cursive;font-size:1.5rem;text-align:center;color:var(--amber-deep);}
-  .bname{font-family:'Alfa Slab One',cursive;font-size:1.05rem;color:var(--dark);}
+  .bname{font-family:'Alfa Slab One',cursive;font-size:1.05rem;color:var(--dark);display:flex;align-items:center;gap:6px;}
+  .bname .myhint{font-family:'Fraunces',serif;font-weight:400;font-style:italic;font-size:.7rem;color:var(--green);opacity:.85;}
   .bbar{height:8px;background:rgba(43,29,14,.15);border-radius:20px;overflow:hidden;margin-top:5px;}
   .bbar > div{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:20px;transition:width .7s;}
   .bavg{text-align:right;font-family:'Alfa Slab One',cursive;font-size:1.5rem;color:var(--dark);}
@@ -60,13 +89,20 @@
   </div>
 
   <div class="vote-wrap" id="voteWrap">
+    <div class="stickyboard" id="stickyboard">
+      <h3>🏆 Aktuální pořadí</h3>
+      <div id="sticky"></div>
+    </div>
     <div id="list"></div>
     <button class="submit" id="submitBtn">Odeslat hodnocení</button>
-    <div class="hint">Hodnotit můžeš jen některá piva. Před odesláním lze libovolně měnit.</div>
+    <div class="hint">Hodnotit můžeš jen některá piva. Před odesláním lze měnit. Klikni do pořadí nahoře pro skok k pivu.</div>
   </div>
 
   <div class="board-wrap" id="boardWrap">
-    <div class="bhead"><h2>🍺 Žebříček 🍺</h2></div>
+    <div class="bhead">
+      <h2>🍺 Žebříček 🍺</h2>
+      <div class="sub">Klikni na pivo pro úpravu tvého hodnocení</div>
+    </div>
     <div id="board"></div>
     <button class="edit" id="editBtn">Upravit moje hodnocení</button>
   </div>
@@ -75,7 +111,7 @@
   <div class="toast" id="toast"></div>
 
 <script>
-// --- stálá identita hlasujícího (jeden telefon = jeden hlasující) ---
+// --- stálá identita hlasujícího ---
 const VOTER_KEY = 'pivo_voter_id';
 let voterId = localStorage.getItem(VOTER_KEY);
 if(!voterId){
@@ -83,9 +119,14 @@ if(!voterId){
   localStorage.setItem(VOTER_KEY, voterId);
 }
 
-let beers = [];
-let selection = {};   // {pivo: skore} – aktuální výběr (před odesláním)
+// activeBeers: pole jmen piv, co jsou teď na čepu (z /api/beers)
+// myVotes: {beer: {score, note, active}} z /api/vote?voter=
+// editable: spojený seznam piv, co host uvidí v editaci = aktivní + ta z myVotes (i inactive)
+let activeBeers = [];
+let myVotes = {};
+let selection = {};   // {beer: {score, note}} – aktuální výběr (před odesláním)
 let pollTimer = null;
+let lastResults = []; // poslední výsledky ze serveru pro sticky leaderboard
 
 function toast(msg){
   const t = document.getElementById('toast');
@@ -93,38 +134,105 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
+function editableList(){
+  // aktivní piva + neaktivní, která jsem v minulosti ohodnotil
+  const list = [...activeBeers];
+  for(const b of Object.keys(myVotes)){
+    if(!myVotes[b].active && !list.includes(b)) list.push(b);
+  }
+  return list;
+}
+
 function renderCards(){
   const list = document.getElementById('list');
   list.innerHTML = '';
-  beers.forEach(beer=>{
+  editableList().forEach(beer=>{
+    const inactive = myVotes[beer] && !myVotes[beer].active;
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card' + (inactive ? ' inactive':'');
+    card.dataset.beer = beer;
+
+    const sel = selection[beer] || {};
+    const score = sel.score;
+    const note = (sel.note ?? '');
+
     let nums = '';
     for(let i=1;i<=10;i++){
-      const sel = selection[beer]===i ? ' sel' : '';
-      nums += '<button class="num'+sel+'" data-s="'+i+'">'+i+'</button>';
+      const isSel = score === i ? ' sel' : '';
+      const dis = inactive ? ' disabled' : '';
+      nums += `<button class="num${isSel}" data-s="${i}"${dis}>${i}</button>`;
     }
+    const clrBtn = (!inactive && score !== undefined)
+      ? '<button class="clr">zrušit</button>' : '';
+    const noteId = 'note-'+beer.replace(/[^a-zA-Z0-9]/g,'_');
+
     card.innerHTML =
-      '<div class="beer-name"><span class="lbl">'+beer+'</span>'+
-      (selection[beer]!==undefined?'<button class="clr">zrušit</button>':'')+'</div>'+
-      '<div class="scale">'+nums+'</div>';
-    card.querySelectorAll('.num').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        selection[beer] = parseInt(btn.dataset.s,10);
+      `<div class="beer-name"><span class="lbl">${beer}</span>${clrBtn}</div>`+
+      `<div class="scale">${nums}</div>`+
+      `<div class="note">`+
+        `<label for="${noteId}"><span>Postřeh (jen pro mě)</span><span class="cnt"><span class="cur">${note.length}</span>/100</span></label>`+
+        `<textarea id="${noteId}" maxlength="100" placeholder="Co tě napadlo?">${escapeHtml(note)}</textarea>`+
+      `</div>`;
+
+    // numeric buttons
+    if(!inactive){
+      card.querySelectorAll('.num').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const s = parseInt(btn.dataset.s,10);
+          selection[beer] = { score: s, note: (selection[beer]?.note ?? '') };
+          renderCards();
+        });
+      });
+      const clr = card.querySelector('.clr');
+      if(clr) clr.addEventListener('click',()=>{
+        // zrušení smaže celé hodnocení tohoto piva (včetně poznámky)
+        delete selection[beer];
         renderCards();
       });
+    }
+
+    // textarea: měnit note a counter; pro inactive pivo je note furt editovatelná
+    const ta = card.querySelector('textarea');
+    const cur = card.querySelector('.cur');
+    ta.addEventListener('input', ()=>{
+      const v = ta.value.slice(0,100);
+      if(inactive){
+        // u inactive piva nemůžeme hodnoty smazat – musíme zachovat předchozí score
+        selection[beer] = { score: myVotes[beer].score, note: v };
+      } else {
+        // pro aktivní, pokud uživatel ještě nevybral skóre, note se neukládá
+        // (nevíme co s ní, dokud nedá body). Ale UX: necháme ji v selection
+        // i bez score – při odeslání score==undefined hlas přeskočíme.
+        selection[beer] = { score: selection[beer]?.score, note: v };
+      }
+      cur.textContent = v.length;
     });
-    const clr = card.querySelector('.clr');
-    if(clr) clr.addEventListener('click',()=>{ delete selection[beer]; renderCards(); });
+
     list.appendChild(card);
   });
 }
 
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
 async function submitVotes(){
-  // posílej hlasy jen pro aktuálně zobrazená (aktivní) piva – dřívější hlasy
-  // pro mezitím sundaná piva server odmítne, tak je vynech
-  const votes = beers.filter(b=>selection[b]!==undefined).map(b=>({beer:b, score:selection[b]}));
+  // do payloadu jdou jen piva, co mají buď score (aktivní) nebo jsou inactive
+  // s předchozím score (note edit). Klíč: aktivní pivo bez score se neposílá.
+  const votes = [];
+  for(const beer of Object.keys(selection)){
+    const s = selection[beer];
+    const inactive = myVotes[beer] && !myVotes[beer].active;
+    if(inactive){
+      // posíláme score z DB (server si ho stejně přepíše), note z UI
+      votes.push({ beer, score: myVotes[beer].score, note: s.note || '' });
+    } else if(typeof s.score === 'number'){
+      votes.push({ beer, score: s.score, note: s.note || '' });
+    }
+    // jinak: aktivní pivo bez score = neoceňujeme, ignorujeme
+  }
   if(votes.length===0){ toast('Ohodnoť aspoň jedno pivo 🍺'); return; }
+
   try{
     const res = await fetch('/api/vote',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -132,13 +240,28 @@ async function submitVotes(){
     });
     if(!res.ok) throw new Error(await res.text());
     toast('Odesláno, díky! 🍻');
+    // reload moje hlasy a zobraz žebříček
+    await loadMyVotes();
     showBoard();
   }catch(e){ toast('Chyba odeslání, zkus to znovu'); console.error(e); }
+}
+
+async function loadMyVotes(){
+  try{
+    const mine = await (await fetch('/api/vote?voter='+encodeURIComponent(voterId))).json();
+    myVotes = mine || {};
+  }catch(e){ myVotes = {}; }
+  // selection se inicializuje z myVotes při vstupu do editace
+  selection = {};
+  for(const beer of Object.keys(myVotes)){
+    selection[beer] = { score: myVotes[beer].score, note: myVotes[beer].note || '' };
+  }
 }
 
 function showBoard(){
   document.getElementById('voteWrap').classList.add('hide');
   document.getElementById('boardWrap').classList.add('show');
+  document.getElementById('stickyboard').classList.remove('show');
   if(!pollTimer){
     pollBoard();
     pollTimer = setInterval(pollBoard, 2500);
@@ -148,21 +271,46 @@ function showBoard(){
 async function pollBoard(){
   try{
     const res = await fetch('/api/results', {cache:'no-store'});
-    if(res.ok) renderBoard(await res.json());
+    if(res.ok){
+      lastResults = await res.json();
+      renderBoard(lastResults);
+      renderSticky(lastResults);
+    }
   }catch(err){}
 }
 
-function showVote(){
+function showVote(focusBeer){
   document.getElementById('boardWrap').classList.remove('show');
   document.getElementById('voteWrap').classList.remove('hide');
-  if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  // sticky leaderboard při editaci
+  document.getElementById('stickyboard').classList.add('show');
+  // pokud poll neběží, spusť ho (sticky se má aktualizovat živě)
+  if(!pollTimer){
+    pollBoard();
+    pollTimer = setInterval(pollBoard, 2500);
+  }
   renderCards();
+  if(focusBeer){
+    requestAnimationFrame(()=>{
+      const card = document.querySelector('.card[data-beer="'+cssEscape(focusBeer)+'"]');
+      if(card){
+        card.scrollIntoView({behavior:'smooth', block:'start'});
+        card.classList.add('focus-flash');
+        setTimeout(()=>card.classList.remove('focus-flash'), 1300);
+      }
+    });
+  }
+}
+
+function cssEscape(s){
+  // jednoduchá náhrada CSS.escape pro starší prohlížeče
+  return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g,'\\$&');
 }
 
 function hlasu(n){ if(n===1)return 'hlas'; if(n>=2&&n<=4)return 'hlasy'; return 'hlasů'; }
 
 function renderBoard(data){
-  data.sort((a,b)=>b.avg-a.avg);
+  data = [...data].sort((a,b)=>b.avg-a.avg);
   const board = document.getElementById('board');
   const medals=['🥇','🥈','🥉'];
   if(data.every(d=>d.count===0)){
@@ -172,29 +320,57 @@ function renderBoard(data){
   board.innerHTML='';
   data.forEach((d,i)=>{
     const row=document.createElement('div');
-    row.className='brow'+(i===0&&d.count>0?' top':'');
+    const mine = myVotes[d.beer] !== undefined;
+    row.className='brow'+(i===0&&d.count>0?' top':'') + (mine?' mine':'');
+    row.dataset.beer = d.beer;
     const rank=(i<3&&d.count>0)?medals[i]:(i+1);
     const pct=d.count>0?(d.avg/10*100):0;
     const avg=d.count>0?d.avg.toFixed(1):'–';
+    const myHint = mine ? `<span class="myhint">tvoje: ${myVotes[d.beer].score}</span>` : '';
     row.innerHTML='<div class="brank">'+rank+'</div>'+
-      '<div><div class="bname">'+d.beer+'</div><div class="bbar"><div style="width:'+pct+'%"></div></div></div>'+
+      '<div><div class="bname">'+escapeHtml(d.beer)+myHint+'</div><div class="bbar"><div style="width:'+pct+'%"></div></div></div>'+
       '<div><div class="bavg">'+avg+'</div><div class="bcnt">'+d.count+' '+hlasu(d.count)+'</div></div>';
+    row.addEventListener('click', ()=>{
+      // klik na pivo = otevři editaci s focusem na tohle pivo
+      showVote(d.beer);
+    });
     board.appendChild(row);
   });
 }
 
+function renderSticky(data){
+  data = [...data].sort((a,b)=>b.avg-a.avg);
+  const wrap = document.getElementById('sticky');
+  const medals=['🥇','🥈','🥉'];
+  if(data.every(d=>d.count===0)){ wrap.innerHTML='<div style="text-align:center;font-style:italic;opacity:.6;color:var(--foam);padding:6px;">Zatím žádné hlasy</div>'; return; }
+  wrap.innerHTML='';
+  data.forEach((d,i)=>{
+    if(d.count===0) return;
+    const row=document.createElement('div');
+    row.className='sb-row'+(i===0?' top':'');
+    const rank=(i<3)?medals[i]:(i+1);
+    row.innerHTML='<div class="r">'+rank+'</div><div class="n">'+escapeHtml(d.beer)+'</div><div class="v">'+d.avg.toFixed(1)+'</div>';
+    row.addEventListener('click', ()=>{
+      // skroluj k odpovídající kartě
+      const card = document.querySelector('.card[data-beer="'+cssEscape(d.beer)+'"]');
+      if(card){
+        card.scrollIntoView({behavior:'smooth', block:'start'});
+        card.classList.add('focus-flash');
+        setTimeout(()=>card.classList.remove('focus-flash'), 1300);
+      }
+    });
+    wrap.appendChild(row);
+  });
+}
+
 async function init(){
-  beers = await (await fetch('/api/beers')).json();
-  // načti dřívější hlasy tohoto telefonu (po reopen QR uvidí svůj výběr)
-  try{
-    const mine = await (await fetch('/api/vote?voter='+encodeURIComponent(voterId))).json();
-    selection = mine || {};
-  }catch(e){ selection = {}; }
+  activeBeers = await (await fetch('/api/beers')).json();
+  await loadMyVotes();
   renderCards();
   // pokud už dřív hlasoval, rovnou ukaž žebříček (s možností úpravy)
-  if(Object.keys(selection).length>0){ showBoard(); }
+  if(Object.keys(myVotes).length>0){ showBoard(); }
   document.getElementById('submitBtn').addEventListener('click', submitVotes);
-  document.getElementById('editBtn').addEventListener('click', showVote);
+  document.getElementById('editBtn').addEventListener('click', ()=>showVote());
 }
 init();
 </script>

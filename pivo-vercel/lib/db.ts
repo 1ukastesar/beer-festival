@@ -27,8 +27,12 @@ export async function ensureSchema(): Promise<void> {
       voter   TEXT NOT NULL,
       beer    TEXT NOT NULL,
       score   INTEGER NOT NULL,
+      note    TEXT NOT NULL DEFAULT '',
       ts      BIGINT NOT NULL
     )`;
+  // Pro existující DB ze starší verze schématu doplníme nový sloupec.
+  // IF NOT EXISTS dělá příkaz idempotentním.
+  await sql`ALTER TABLE votes ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''`;
   await sql`CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes(voter)`;
   initialized = true;
 }
