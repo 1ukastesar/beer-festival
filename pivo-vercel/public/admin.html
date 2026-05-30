@@ -97,7 +97,7 @@ function render(beers){
 
 async function action(act,name){
   try{
-    const res=await fetch('/api/admin/beer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:act,name})});
+    const res=await fetch('/api/admin/beers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:act,name})});
     if(!res.ok) throw new Error(await res.text());
     load();
   }catch(e){ toast('Chyba: '+e.message); }
