@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
+import { sql, ensureSchema, isAdmin } from '../lib/db.js';
 
 // GET  /api/admin/beers → všechna piva se stavem (active) – jen admin
 // POST /api/admin/beers body: {"action":"add|activate|deactivate","name":"..."}
