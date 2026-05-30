@@ -27,14 +27,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     switch (action) {
-      case 'add': {
-        const now = Date.now();
-        // přidat nové, nebo když už existuje, znovu aktivovat
-        await sql`
-          INSERT INTO beers (name, active, sort, created)
-          VALUES (${name}, true, ${now}, ${now})
-          ON CONFLICT (name) DO UPDATE SET active = true
-        `;
+case 'add': {
+        try {
+          const now = Date.now();
+          console.log('[admin/beers] add: name=', name, 'now=', now);
+
+          const maxRow = (await sql`
+            SELECT COALESCE(MAX(sort), 0) AS max FROM beers
+          `) as { max: number | string }[];
+          console.log('[admin/beers] maxRow=', JSON.stringify(maxRow));
+
+          const nextSort = Number(maxRow[0]?.max ?? 0) + 1;
+          console.log('[admin/beers] nextSort=', nextSort, 'type=', typeof nextSort);
+
+          await sql`
+            INSERT INTO beers (name, active, sort, created)
+            VALUES (${name}, true, ${nextSort}, ${now})
+            ON CONFLICT (name) DO UPDATE SET active = true
+          `;
+          console.log('[admin/beers] insert OK');
+        } catch (err) {
+          console.error('[admin/beers] add ERROR:', err);
+          throw err;
+        }
         break;
       }
       case 'activate':
