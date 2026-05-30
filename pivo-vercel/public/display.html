@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pivní slavnosti – Žebříček</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600&display=swap');
+  :root{
+    --amber:#e8a93a;--amber-deep:#b9770e;--foam:#fdf6e3;--dark:#2b1d0e;
+    --gold:#f1c40f;--green:#5d8a4a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;}
+  body{
+    font-family:'Fraunces',Georgia,serif;
+    background:radial-gradient(ellipse at 30% 20%,#3a2810 0%,#1c1308 70%,#0f0a04 100%);
+    color:var(--foam);display:flex;flex-direction:column;padding:2vh 2.5vw;
+  }
+  h1{font-family:'Alfa Slab One',cursive;font-size:3.6vw;text-align:center;color:var(--gold);
+    text-shadow:0 3px 0 var(--amber-deep),0 6px 18px rgba(0,0,0,.6);margin-bottom:.1em;letter-spacing:1px;}
+  .sub{text-align:center;font-style:italic;font-size:1.2vw;opacity:.65;margin-bottom:1.5vh;}
+  /* board je grid; počet sloupců se nastaví v JS podle počtu piv */
+  .board{flex:1;display:grid;gap:1vh 1.5vw;align-content:center;grid-auto-flow:column;}
+  .row{
+    display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.8vw;
+    background:rgba(253,246,227,.06);border:1.5px solid rgba(253,246,227,.13);
+    border-radius:12px;padding:1vh 1.2vw;transition:all .5s cubic-bezier(.2,.8,.2,1);
+  }
+  .row.top{background:linear-gradient(90deg,rgba(241,196,15,.20),rgba(241,196,15,.04));
+    border-color:var(--gold);box-shadow:0 0 24px rgba(241,196,15,.2);}
+  .rank{font-family:'Alfa Slab One',cursive;text-align:center;color:var(--amber);min-width:1.6em;}
+  .row.top .rank{color:var(--gold);}
+  .name{font-family:'Alfa Slab One',cursive;color:var(--foam);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .barwrap{height:.7vh;background:rgba(0,0,0,.35);border-radius:20px;overflow:hidden;margin-top:.5vh;}
+  .bar{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:20px;transition:width .8s ease;}
+  .score{text-align:right;font-family:'Alfa Slab One',cursive;color:var(--foam);}
+  .cnt{font-size:.65em;opacity:.55;font-style:italic;font-family:'Fraunces',serif;font-weight:400;}
+  .empty{text-align:center;font-size:1.6vw;opacity:.5;font-style:italic;margin-top:6vh;}
+  .foot{text-align:center;font-size:1vw;opacity:.4;font-style:italic;margin-top:1vh;}
+  .info{min-width:0;}
+</style>
+</head>
+<body>
+  <h1>🍺 Žebříček piv 🍺</h1>
+  <div class="sub">Hodnocení v reálném čase</div>
+  <div class="board" id="board"></div>
+  <div class="foot">Naskenuj QR na stole a hlasuj • aktualizuje se živě</div>
+
+<script>
+const medals=['🥇','🥈','🥉'];
+let lastTop=null;
+
+// Rozvrhne řádky: do 8 piv jeden sloupec, víc → dva sloupce.
+// Velikost písma škáluje podle počtu řádků na sloupec, ať se vše vejde.
+function layout(n){
+  const cols = n>8 ? 2 : 1;
+  const perCol = Math.ceil(n/cols);
+  const board=document.getElementById('board');
+  board.style.gridTemplateColumns = cols===2 ? '1fr 1fr' : '1fr';
+  board.style.gridTemplateRows = 'repeat('+perCol+',1fr)';
+  // dynamická velikost fontu řádku podle počtu na sloupec
+  const fs = Math.max(1.1, Math.min(2.6, 22/perCol)); // vw
+  document.documentElement.style.setProperty('--rowfs', fs+'vw');
+  return {cols,perCol};
+}
+
+function hlasu(n){if(n===1)return 'hlas';if(n>=2&&n<=4)return 'hlasy';return 'hlasů';}
+
+function render(data){
+  data.sort((a,b)=>b.avg-a.avg);
+  const board=document.getElementById('board');
+  if(data.every(d=>d.count===0)){
+    board.style.display='block';
+    board.innerHTML='<div class="empty">Zatím žádné hlasy — buď první! 🍺</div>';
+    return;
+  }
+  board.style.display='grid';
+  layout(data.length);
+  board.innerHTML='';
+  data.forEach((d,i)=>{
+    const row=document.createElement('div');
+    row.className='row'+(i===0&&d.count>0?' top':'');
+    const rank=(i<3&&d.count>0)?medals[i]:(i+1);
+    const pct=d.count>0?(d.avg/10*100):0;
+    const avg=d.count>0?d.avg.toFixed(1):'–';
+    row.style.fontSize='var(--rowfs)';
+    row.innerHTML=
+      '<div class="rank">'+rank+'</div>'+
+      '<div class="info"><div class="name">'+d.beer+'</div>'+
+        '<div class="barwrap"><div class="bar" style="width:'+pct+'%"></div></div></div>'+
+      '<div class="score">'+avg+'<div class="cnt">'+d.count+' '+hlasu(d.count)+'</div></div>';
+    board.appendChild(row);
+  });
+  const top=data[0]&&data[0].count>0?data[0].beer:null;
+  if(top&&top!==lastTop&&lastTop!==null){ board.firstChild.classList.add('pulse'); }
+  lastTop=top;
+}
+
+// Polling: každé 2.5s se zeptáme serveru na výsledky (serverless neumí SSE).
+async function poll(){
+  try{
+    const res = await fetch('/api/results', {cache:'no-store'});
+    if(res.ok) render(await res.json());
+  }catch(err){ console.error(err); }
+}
+poll();
+setInterval(poll, 2500);
+</script>
+</body>
+</html>

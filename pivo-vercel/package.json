@@ -1,0 +1,19 @@
+{
+  "name": "pivo-vercel",
+  "version": "1.0.0",
+  "description": "Pivní slavnosti – live hlasování piv (Vercel + Neon Postgres)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.4"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.2.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  }
+}

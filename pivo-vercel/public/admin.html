@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pivní slavnosti – Správa piv</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600&display=swap');
+  :root{--amber:#d68910;--amber-deep:#b9770e;--foam:#fdf6e3;--dark:#2b1d0e;--cream:#f5e6c8;--green:#4f7942;--red:#b0413e;--shadow:rgba(43,29,14,.25);--gold:#f1c40f;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Fraunces',Georgia,serif;background:radial-gradient(ellipse at top,#e8a93a 0%,#c8861a 40%,#9c640c 100%);color:var(--dark);min-height:100vh;padding:24px 18px 40px;}
+  .head{text-align:center;margin-bottom:22px;}
+  .head h1{font-family:'Alfa Slab One',cursive;font-size:1.9rem;color:var(--foam);text-shadow:3px 3px 0 var(--amber-deep),5px 5px 0 var(--shadow);}
+  .head p{font-style:italic;color:var(--dark);opacity:.8;margin-top:4px;}
+  .card{background:var(--foam);border:3px solid var(--dark);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:5px 5px 0 var(--shadow);max-width:520px;margin-left:auto;margin-right:auto;}
+  input{width:100%;padding:13px;font-family:'Fraunces',serif;font-size:1.05rem;border:2px solid var(--dark);border-radius:10px;background:#fff;color:var(--dark);}
+  button{font-family:'Fraunces',serif;font-weight:600;cursor:pointer;border:2px solid var(--dark);border-radius:10px;transition:all .12s;}
+  button:active{transform:scale(.96);}
+  .btn-primary{background:var(--dark);color:var(--gold);padding:13px 18px;font-size:1.05rem;}
+  .row{display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--dark);border-radius:12px;margin-bottom:10px;background:var(--cream);}
+  .row.off{opacity:.55;}
+  .row .name{flex:1;font-family:'Alfa Slab One',cursive;font-size:1.1rem;color:var(--amber-deep);}
+  .badge{font-size:.75rem;font-style:italic;padding:3px 8px;border-radius:8px;}
+  .badge.on{background:var(--green);color:var(--foam);}
+  .badge.offb{background:#ccc;color:#555;}
+  .toggle{padding:9px 14px;font-size:.9rem;}
+  .toggle.deact{background:var(--red);color:var(--foam);}
+  .toggle.act{background:var(--green);color:var(--foam);}
+  .addrow{display:flex;gap:8px;margin-top:4px;}
+  .addrow input{flex:1;}
+  .hint{text-align:center;font-style:italic;opacity:.7;font-size:.9rem;margin-top:14px;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:var(--dark);color:var(--foam);padding:12px 22px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px var(--shadow);opacity:0;transition:all .3s;z-index:50;}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .links{text-align:center;margin-top:16px;font-size:.9rem;}
+  .links a{color:var(--dark);}
+</style>
+</head>
+<body>
+  <div class="head"><h1>🍺 Správa piv</h1><p>Přidávej a přepínej, co je na čepu</p></div>
+
+  <div class="card" id="loginCard">
+    <div style="margin-bottom:10px;font-weight:600;">Přihlášení</div>
+    <input type="password" id="pass" placeholder="Heslo admina" autocomplete="current-password">
+    <button class="btn-primary" style="width:100%;margin-top:10px;" id="loginBtn">Přihlásit</button>
+  </div>
+
+  <div class="card" id="manageCard" style="display:none;">
+    <div style="margin-bottom:12px;font-weight:600;">Piva</div>
+    <div id="list"></div>
+    <div class="addrow">
+      <input type="text" id="newBeer" placeholder="Název nového piva" autocomplete="off">
+      <button class="btn-primary" id="addBtn">Přidat</button>
+    </div>
+    <div class="hint">Aktivní piva vidí hosté v hlasování. Neaktivní zůstávají v žebříčku na TV.</div>
+    <div class="links"><a href="/display" target="_blank">Otevřít žebříček (TV)</a></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+
+async function login(){
+  const p=document.getElementById('pass').value;
+  try{
+    const res=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p})});
+    if(!res.ok) throw new Error();
+    showManage();
+  }catch(e){ toast('Špatné heslo'); }
+}
+
+async function load(){
+  try{
+    const res=await fetch('/api/admin/beers');
+    if(res.status===401){ showLogin(); return; }
+    const beers=await res.json();
+    render(beers||[]);
+  }catch(e){ showLogin(); }
+}
+
+function render(beers){
+  const list=document.getElementById('list');
+  if(beers.length===0){ list.innerHTML='<div style="font-style:italic;opacity:.6;padding:8px;">Zatím žádná piva. Přidej první níže.</div>'; return; }
+  list.innerHTML='';
+  beers.forEach(b=>{
+    const row=document.createElement('div');
+    row.className='row'+(b.active?'':' off');
+    row.innerHTML='<span class="name">🍺 '+b.name+'</span>'+
+      '<span class="badge '+(b.active?'on':'offb')+'">'+(b.active?'na čepu':'sundáno')+'</span>'+
+      '<button class="toggle '+(b.active?'deact':'act')+'" data-name="'+encodeURIComponent(b.name)+'" data-act="'+(b.active?'deactivate':'activate')+'">'+(b.active?'Sundat':'Nasadit')+'</button>';
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.toggle').forEach(btn=>{
+    btn.addEventListener('click',()=>action(btn.dataset.act, decodeURIComponent(btn.dataset.name)));
+  });
+}
+
+async function action(act,name){
+  try{
+    const res=await fetch('/api/admin/beer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:act,name})});
+    if(!res.ok) throw new Error(await res.text());
+    load();
+  }catch(e){ toast('Chyba: '+e.message); }
+}
+
+async function addBeer(){
+  const name=document.getElementById('newBeer').value.trim();
+  if(!name){ toast('Zadej název'); return; }
+  await action('add',name);
+  document.getElementById('newBeer').value='';
+  toast('Přidáno: '+name);
+}
+
+function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';}
+function showManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';load();}
+
+document.getElementById('loginBtn').addEventListener('click',login);
+document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+document.getElementById('addBtn').addEventListener('click',addBeer);
+document.getElementById('newBeer').addEventListener('keydown',e=>{if(e.key==='Enter')addBeer();});
+
+// zkus rovnou načíst (pokud už je cookie z dřívějška)
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pivní slavnosti – Hodnocení</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap');
+  :root{
+    --amber:#d68910;--amber-deep:#b9770e;--foam:#fdf6e3;--dark:#2b1d0e;
+    --cream:#f5e6c8;--green:#4f7942;--shadow:rgba(43,29,14,.25);--gold:#f1c40f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Fraunces',Georgia,serif;background:radial-gradient(ellipse at top,#e8a93a 0%,#c8861a 40%,#9c640c 100%);color:var(--dark);min-height:100vh;padding:24px 18px 40px;overflow-x:hidden;}
+  .head{text-align:center;margin-bottom:22px;}
+  .head h1{font-family:'Alfa Slab One',cursive;font-size:2.1rem;line-height:1.05;color:var(--foam);text-shadow:3px 3px 0 var(--amber-deep),5px 5px 0 var(--shadow);letter-spacing:.5px;}
+  .head p{color:var(--dark);font-style:italic;margin-top:6px;font-size:1.05rem;opacity:.8;}
+
+  .card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:18px 16px;margin-bottom:14px;box-shadow:6px 6px 0 var(--shadow);}
+  .beer-name{font-family:'Alfa Slab One',cursive;font-size:1.3rem;color:var(--amber-deep);margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:space-between;}
+  .beer-name .lbl{display:flex;align-items:center;gap:8px;}
+  .beer-name .lbl::before{content:"🍺";}
+  .clr{font-family:'Fraunces',serif;font-size:.8rem;font-style:italic;color:var(--dark);opacity:.5;background:none;border:none;cursor:pointer;text-decoration:underline;}
+  .scale{display:flex;flex-wrap:wrap;gap:7px;}
+  .scale button.num{flex:1 1 calc(20% - 7px);min-width:46px;aspect-ratio:1;font-family:'Fraunces',serif;font-weight:600;font-size:1.2rem;background:var(--cream);border:2px solid var(--dark);border-radius:12px;color:var(--dark);cursor:pointer;transition:all .12s ease;}
+  .scale button.num:active{transform:scale(.9);}
+  .scale button.num.sel{background:var(--green);color:var(--foam);transform:scale(1.05);box-shadow:0 0 0 3px var(--foam),0 0 0 5px var(--green);}
+
+  .submit{position:sticky;bottom:16px;width:100%;margin-top:20px;padding:18px;font-family:'Alfa Slab One',cursive;font-size:1.3rem;background:var(--dark);color:var(--gold);border:3px solid var(--gold);border-radius:16px;box-shadow:0 6px 0 var(--shadow);cursor:pointer;transition:all .12s;}
+  .submit:active{transform:translateY(3px);box-shadow:0 3px 0 var(--shadow);}
+  .submit:disabled{opacity:.4;cursor:not-allowed;}
+  .hint{text-align:center;font-style:italic;font-size:.9rem;color:var(--dark);opacity:.65;margin-top:10px;}
+
+  /* žebříček po odeslání */
+  .board-wrap{display:none;}
+  .board-wrap.show{display:block;}
+  .vote-wrap.hide{display:none;}
+  .bhead{text-align:center;margin-bottom:18px;}
+  .bhead h2{font-family:'Alfa Slab One',cursive;font-size:1.6rem;color:var(--foam);text-shadow:2px 2px 0 var(--amber-deep);}
+  .brow{display:grid;grid-template-columns:42px 1fr 64px;align-items:center;gap:10px;background:var(--foam);border:3px solid var(--dark);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:4px 4px 0 var(--shadow);}
+  .brow.top{border-color:var(--gold);background:#fff8e1;}
+  .brank{font-family:'Alfa Slab One',cursive;font-size:1.5rem;text-align:center;color:var(--amber-deep);}
+  .bname{font-family:'Alfa Slab One',cursive;font-size:1.05rem;color:var(--dark);}
+  .bbar{height:8px;background:rgba(43,29,14,.15);border-radius:20px;overflow:hidden;margin-top:5px;}
+  .bbar > div{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:20px;transition:width .7s;}
+  .bavg{text-align:right;font-family:'Alfa Slab One',cursive;font-size:1.5rem;color:var(--dark);}
+  .bcnt{text-align:right;font-size:.7rem;font-style:italic;opacity:.55;}
+  .edit{width:100%;margin-top:16px;padding:14px;font-family:'Alfa Slab One',cursive;font-size:1.05rem;background:var(--foam);color:var(--amber-deep);border:3px solid var(--dark);border-radius:14px;box-shadow:0 5px 0 var(--shadow);cursor:pointer;}
+  .edit:active{transform:translateY(2px);box-shadow:0 3px 0 var(--shadow);}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:var(--dark);color:var(--foam);padding:12px 22px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px var(--shadow);opacity:0;transition:all .3s;z-index:50;}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .footer{text-align:center;margin-top:20px;color:var(--dark);opacity:.6;font-style:italic;font-size:.9rem;}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>Pivní<br>slavnosti</h1>
+    <p>Ohodnoť piva 1–10</p>
+  </div>
+
+  <div class="vote-wrap" id="voteWrap">
+    <div id="list"></div>
+    <button class="submit" id="submitBtn">Odeslat hodnocení</button>
+    <div class="hint">Hodnotit můžeš jen některá piva. Před odesláním lze libovolně měnit.</div>
+  </div>
+
+  <div class="board-wrap" id="boardWrap">
+    <div class="bhead"><h2>🍺 Žebříček 🍺</h2></div>
+    <div id="board"></div>
+    <button class="edit" id="editBtn">Upravit moje hodnocení</button>
+  </div>
+
+  <div class="footer">Na zdraví! 🍻</div>
+  <div class="toast" id="toast"></div>
+
+<script>
+// --- stálá identita hlasujícího (jeden telefon = jeden hlasující) ---
+const VOTER_KEY = 'pivo_voter_id';
+let voterId = localStorage.getItem(VOTER_KEY);
+if(!voterId){
+  voterId = (crypto.randomUUID ? crypto.randomUUID() : 'v'+Date.now()+Math.random().toString(36).slice(2));
+  localStorage.setItem(VOTER_KEY, voterId);
+}
+
+let beers = [];
+let selection = {};   // {pivo: skore} – aktuální výběr (před odesláním)
+let pollTimer = null;
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function renderCards(){
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  beers.forEach(beer=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    let nums = '';
+    for(let i=1;i<=10;i++){
+      const sel = selection[beer]===i ? ' sel' : '';
+      nums += '<button class="num'+sel+'" data-s="'+i+'">'+i+'</button>';
+    }
+    card.innerHTML =
+      '<div class="beer-name"><span class="lbl">'+beer+'</span>'+
+      (selection[beer]!==undefined?'<button class="clr">zrušit</button>':'')+'</div>'+
+      '<div class="scale">'+nums+'</div>';
+    card.querySelectorAll('.num').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        selection[beer] = parseInt(btn.dataset.s,10);
+        renderCards();
+      });
+    });
+    const clr = card.querySelector('.clr');
+    if(clr) clr.addEventListener('click',()=>{ delete selection[beer]; renderCards(); });
+    list.appendChild(card);
+  });
+}
+
+async function submitVotes(){
+  // posílej hlasy jen pro aktuálně zobrazená (aktivní) piva – dřívější hlasy
+  // pro mezitím sundaná piva server odmítne, tak je vynech
+  const votes = beers.filter(b=>selection[b]!==undefined).map(b=>({beer:b, score:selection[b]}));
+  if(votes.length===0){ toast('Ohodnoť aspoň jedno pivo 🍺'); return; }
+  try{
+    const res = await fetch('/api/vote',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({voter:voterId, votes})
+    });
+    if(!res.ok) throw new Error(await res.text());
+    toast('Odesláno, díky! 🍻');
+    showBoard();
+  }catch(e){ toast('Chyba odeslání, zkus to znovu'); console.error(e); }
+}
+
+function showBoard(){
+  document.getElementById('voteWrap').classList.add('hide');
+  document.getElementById('boardWrap').classList.add('show');
+  if(!pollTimer){
+    pollBoard();
+    pollTimer = setInterval(pollBoard, 2500);
+  }
+}
+
+async function pollBoard(){
+  try{
+    const res = await fetch('/api/results', {cache:'no-store'});
+    if(res.ok) renderBoard(await res.json());
+  }catch(err){}
+}
+
+function showVote(){
+  document.getElementById('boardWrap').classList.remove('show');
+  document.getElementById('voteWrap').classList.remove('hide');
+  if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  renderCards();
+}
+
+function hlasu(n){ if(n===1)return 'hlas'; if(n>=2&&n<=4)return 'hlasy'; return 'hlasů'; }
+
+function renderBoard(data){
+  data.sort((a,b)=>b.avg-a.avg);
+  const board = document.getElementById('board');
+  const medals=['🥇','🥈','🥉'];
+  if(data.every(d=>d.count===0)){
+    board.innerHTML='<div style="text-align:center;font-style:italic;opacity:.6;color:var(--foam);padding:20px;">Zatím žádné hlasy</div>';
+    return;
+  }
+  board.innerHTML='';
+  data.forEach((d,i)=>{
+    const row=document.createElement('div');
+    row.className='brow'+(i===0&&d.count>0?' top':'');
+    const rank=(i<3&&d.count>0)?medals[i]:(i+1);
+    const pct=d.count>0?(d.avg/10*100):0;
+    const avg=d.count>0?d.avg.toFixed(1):'–';
+    row.innerHTML='<div class="brank">'+rank+'</div>'+
+      '<div><div class="bname">'+d.beer+'</div><div class="bbar"><div style="width:'+pct+'%"></div></div></div>'+
+      '<div><div class="bavg">'+avg+'</div><div class="bcnt">'+d.count+' '+hlasu(d.count)+'</div></div>';
+    board.appendChild(row);
+  });
+}
+
+async function init(){
+  beers = await (await fetch('/api/beers')).json();
+  // načti dřívější hlasy tohoto telefonu (po reopen QR uvidí svůj výběr)
+  try{
+    const mine = await (await fetch('/api/vote?voter='+encodeURIComponent(voterId))).json();
+    selection = mine || {};
+  }catch(e){ selection = {}; }
+  renderCards();
+  // pokud už dřív hlasoval, rovnou ukaž žebříček (s možností úpravy)
+  if(Object.keys(selection).length>0){ showBoard(); }
+  document.getElementById('submitBtn').addEventListener('click', submitVotes);
+  document.getElementById('editBtn').addEventListener('click', showVote);
+}
+init();
+</script>
+</body>
+</html>
