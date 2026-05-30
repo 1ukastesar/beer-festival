@@ -1,135 +1,102 @@
-# 🍺 Pivní slavnosti – Vercel + Neon Postgres
+# 🍺 BeerMeter
 
-Live hlasování piv jako serverless aplikace na Vercelu s Neon Postgres.
-Dostupné z internetu přes doménu, hosté hlasují přes mobilní data / WiFi.
-
-> Tohle je **cloud verze**. Offline RPi+hotspot verze je samostatný projekt.
-> Liší se: SQLite → Postgres, SSE → polling, Go server → TS serverless funkce.
+Live beer rating app. Guests rate beers from their phones, results show on a TV leaderboard in real time. Built as a serverless app on Vercel with Neon Postgres.
 
 ```
-[Telefon] --HTTPS--> [Vercel funkce /api/*] --> [Neon Postgres]
-[TV /display] --poll 2.5s--> /api/results
+[Phone] --HTTPS--> [Vercel /api/*] --> [Neon Postgres]
+[TV /display] --poll every 2.5s--> /api/results
 ```
 
-## Co je uvnitř
+## Stack
 
-| Část              | Technologie                          |
-|-------------------|--------------------------------------|
-| Backend           | TypeScript serverless funkce (/api)  |
-| Databáze          | Neon Postgres (serverless)           |
-| Realtime žebříček | polling /api/results po 2.5 s        |
-| Frontend          | statické HTML v /public              |
+| Layer        | Technology                          |
+|--------------|-------------------------------------|
+| Backend      | TypeScript serverless functions     |
+| Database     | Neon Postgres (serverless)          |
+| Leaderboard  | Polling `/api/results` every 2.5s   |
+| Frontend     | Static HTML in `/public`            |
 
-## Endpointy
+## Endpoints
 
-| Cesta                      | Popis                                        |
-|----------------------------|----------------------------------------------|
-| `GET /`                    | Hlasovací stránka (telefon)                  |
-| `GET /display`             | Žebříček pro TV                              |
-| `GET /admin`               | Správa piv (heslo)                          |
-| `GET /api/beers`           | Aktivní piva pro hlasování                   |
-| `GET /api/results`         | Výsledky (display polluje)                   |
-| `POST /api/vote`           | Odeslat/přepsat hlasy voteru                 |
-| `GET /api/vote?voter=<id>` | Dřívější hlasy telefonu (pro úpravu)         |
-| `POST /api/admin/login`    | Přihlášení do adminu                        |
-| `GET/POST /api/admin/beers`| Seznam / přidání / (de)aktivace piv          |
+| Path                          | Description                                  |
+|-------------------------------|----------------------------------------------|
+| `GET /`                       | Voting page (phones)                         |
+| `GET /display`                | Live leaderboard (TV)                        |
+| `GET /admin`                  | Beer management (password-protected)         |
+| `GET /api/beers`              | Active beers for voting                      |
+| `GET /api/results`            | Results (polled by /display)                 |
+| `POST /api/vote`              | Submit/overwrite a voter's ratings           |
+| `GET /api/vote?voter=<id>`    | Voter's previous ratings (for editing)       |
+| `POST /api/admin/login`       | Admin login                                  |
+| `GET/POST /api/admin/beers`   | List / add / (de)activate beers              |
 
----
+## Deployment
 
-## Nasazení krok za krokem
+### 1. Create a Neon database
 
-### 1. Vytvoř Neon databázi
+- Sign up at [neon.tech](https://neon.tech) (free tier is enough).
+- Copy the **connection string** (starts with `postgresql://...`).
 
-- Založ projekt na https://neon.tech (free tier stačí).
-- Zkopíruj **connection string** (začíná `postgresql://...`).
+### 2. Deploy to Vercel
 
-### 2. Nahraj projekt na Vercel
+Import this repository on [vercel.com/new](https://vercel.com/new). Vercel auto-detects the serverless functions in `/api` and static files in `/public`.
 
-Buď přes Git (push do repa, import na vercel.com), nebo přes CLI:
+### 3. Set environment variables
 
-```bash
-npm i -g vercel
-vercel            # první nasazení (preview)
-```
-
-### 3. Nastav environment proměnné na Vercelu
-
-V projektu na vercel.com → Settings → Environment Variables (nebo `vercel env add`):
+In the Vercel project: **Settings → Environment Variables**:
 
 ```
-DATABASE_URL    = postgresql://...    (z Neonu, krok 1)
-ADMIN_PASSWORD  = tvoje-heslo         (změň default!)
+DATABASE_URL    = postgresql://...    (from Neon)
+ADMIN_PASSWORD  = your-password       (change from default!)
 ```
 
-> Pokud propojíš Neon přes Vercel integraci (Storage → Neon), `DATABASE_URL`
-> se nastaví automaticky.
+> If you connect Neon via the Vercel integration (**Storage → Neon**), `DATABASE_URL` is set automatically.
 
-### 4. Produkční nasazení
+### 4. Deploy
 
-```bash
-vercel --prod
-```
+Push to `main` triggers a production deploy. You'll get a URL like `https://beermeter-xxx.vercel.app`.
 
-Dostaneš URL typu `https://pivo-xxx.vercel.app` (nebo vlastní doménu).
+### 5. Add beers and run the event
 
-### 5. Přidej piva a spusť
+- Open `https://<your-url>/admin`, sign in with `ADMIN_PASSWORD`.
+- Add beers currently on tap.
+- Open `https://<your-url>/display` on the TV.
+- Generate a QR code linking to `https://<your-url>/` and place it on the tables.
 
-- Otevři `https://<tvoje-url>/admin`, přihlas se heslem.
-- Přidej piva, co máš na čepu.
-- Na TV otevři `https://<tvoje-url>/display`.
-- QR na stoly nech vést na `https://<tvoje-url>/`:
-  ```bash
-  qrencode -o qr.png 'https://<tvoje-url>/'
-  ```
+The database schema is created automatically on first request (idempotent `CREATE TABLE IF NOT EXISTS`).
 
-Schéma databáze se vytvoří samo při prvním požadavku (idempotentní
-`CREATE TABLE IF NOT EXISTS`), nemusíš nic spouštět ručně.
+## Managing beers during the event
 
----
+Open `/admin` (password from `ADMIN_PASSWORD`):
 
-## Lokální vývoj
+- **Add** — the beer appears in voting.
+- **Deactivate** (taken off tap) — hidden from voting, stays on the leaderboard with its score so far.
+- **Activate** — brought back to voting; previous votes are preserved.
 
-```bash
-npm install
-echo "DATABASE_URL=postgresql://..." > .env.local
-echo "ADMIN_PASSWORD=test" >> .env.local
-vercel dev        # běží na http://localhost:3000
-```
+Guests only see active beers. The leaderboard shows every beer that received at least one vote.
 
----
+## Voter identity and editing
 
-## Správa piv (admin)
+Each phone gets a persistent `voter` ID stored in `localStorage`. Votes are tied to that ID. Editing is an **upsert** — submitting again deletes the voter's previous ratings and inserts the new set, so the vote count never grows from edits, only the average updates.
 
-Stejné jako RPi verze: `/admin` chráněné heslem (`ADMIN_PASSWORD`).
-- **Přidat** → pivo se objeví hostům v hlasování.
-- **Deaktivovat** (sundat z čepu) → zmizí z hlasování, zůstane v žebříčku.
-- **Aktivovat** → zase k hodnocení.
+Because the app runs on a real HTTPS domain in the full browser, `localStorage` persists across closing and reopening the page, so editing and revisiting work reliably.
 
-Hosté vidí jen aktivní piva. Žebříček ukazuje všechna s aspoň jedním hlasem.
+## Reset for a new event
 
-## Identita a úpravy hlasů
-
-Telefon má stálé `voter` ID v `localStorage`. Hlasy jsou na něj navázané,
-úprava je upsert (smaže staré, vloží nové → žádné duplikáty). Protože jde
-o pravou HTTPS doménu otevřenou v plném prohlížeči, `localStorage` přežije
-zavření i návrat – takže editace a opětovné otevření fungují (na rozdíl od
-captive portálu u offline verze).
-
-## Reset hlasování (nová akce)
-
-Smaž data v Neonu (SQL konzole na neon.tech):
+In the Neon SQL console:
 
 ```sql
 DELETE FROM votes;
--- volitelně i piva:
+-- and optionally:
 DELETE FROM beers;
 ```
 
-## Poznámky k serverless
+## Notes
 
-- **Polling místo SSE:** žebříček se obnovuje po 2.5 s. Pro pivní akci
-  nepostřehnutelné, ale není to okamžitý push.
-- **Cold start:** první požadavek po delší nečinnosti může být o ~1 s pomalejší
-  (funkce se probouzí). Během akce s provozem se to neprojeví.
-- **Neon free tier** může uspat DB při nečinnosti; první dotaz ji probudí.
-  Pro celodenní akci s provozem zůstane vzhůru.
+- **Polling, not push.** The leaderboard refreshes every 2.5 s. Imperceptible during an event, but not an instant push.
+- **Cold starts.** First request after idle time may be ~1 s slower while functions and the database warm up. Not noticeable under continuous traffic.
+- **Neon free tier** may pause the database when idle; the first query wakes it up.
+
+## License
+
+MIT
