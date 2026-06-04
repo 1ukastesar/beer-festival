@@ -105,7 +105,9 @@ async function poll(){
   }catch(err){ console.error(err); }
 }
 poll();
-setInterval(poll, 2500);
+// Polling po 30 sekundách – pivní žebříček nepotřebuje sekundovou aktualizaci
+// a šetří to Vercel function invocations (Hobby plán má limit).
+setInterval(poll, 30000);
 </script>
 </body>
 </html>

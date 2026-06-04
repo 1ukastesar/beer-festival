@@ -16,8 +16,8 @@
   .head h1{font-family:'Alfa Slab One',cursive;font-size:2.1rem;line-height:1.05;color:var(--foam);text-shadow:3px 3px 0 var(--amber-deep),5px 5px 0 var(--shadow);letter-spacing:.5px;}
   .head p{color:var(--dark);font-style:italic;margin-top:6px;font-size:1.05rem;opacity:.8;}
 
-  /* sticky leaderboard nahoře při editaci */
-  .stickyboard{position:sticky;top:8px;z-index:30;margin:-6px -6px 16px;padding:10px 8px 8px;border-radius:14px;background:rgba(43,29,14,.92);backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.25);max-height:32vh;overflow-y:auto;display:none;}
+  /* leaderboard mých skóre nahoře při editaci (ne-sticky – skroluje s obsahem) */
+  .stickyboard{margin:-6px -6px 16px;padding:10px 8px 8px;border-radius:14px;background:rgba(43,29,14,.92);box-shadow:0 4px 12px rgba(0,0,0,.25);display:none;}
   .stickyboard.show{display:block;}
   .stickyboard h3{font-family:'Alfa Slab One',cursive;font-size:.95rem;color:var(--gold);text-align:center;margin-bottom:6px;letter-spacing:.5px;}
   .sb-row{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;color:var(--foam);font-size:.85rem;cursor:pointer;transition:background .12s;}
@@ -27,7 +27,7 @@
   .sb-row .n{font-family:'Alfa Slab One',cursive;font-size:.85rem;}
   .sb-row .v{font-family:'Alfa Slab One',cursive;font-size:.95rem;}
 
-  .card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:18px 16px;margin-bottom:14px;box-shadow:6px 6px 0 var(--shadow);scroll-margin-top:34vh;}
+  .card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:18px 16px;margin-bottom:14px;box-shadow:6px 6px 0 var(--shadow);scroll-margin-top:16px;}
   .card.inactive{opacity:.92;border-color:var(--gray);}
   .card.focus-flash{animation:flash 1.2s ease;}
   @keyframes flash{0%{box-shadow:0 0 0 0 var(--gold),6px 6px 0 var(--shadow);}40%{box-shadow:0 0 0 6px var(--gold),6px 6px 0 var(--shadow);}100%{box-shadow:0 0 0 0 var(--gold),6px 6px 0 var(--shadow);}}
@@ -192,7 +192,7 @@ function renderCards(){
       `<div class="scale">${nums}</div>`+
       `<div class="note">`+
         `<label for="${noteId}"><span>Poznámky k pivu</span><span class="cnt"><span class="cur">${note.length}</span>/100</span></label>`+
-        `<textarea id="${noteId}" maxlength="100" placeholder="Co tě napadlo?">${escapeHtml(note)}</textarea>`+
+        `<textarea id="${noteId}" maxlength="100">${escapeHtml(note)}</textarea>`+
       `</div>`;
 
     // numeric buttons
@@ -231,10 +231,6 @@ function renderCards(){
 
     list.appendChild(card);
   });
-  // sticky leaderboard (moje skóre) se vždy aktualizuje s kartami
-  if(document.getElementById('stickyboard').classList.contains('show')){
-    renderMySticky();
-  }
 }
 
 function escapeHtml(s){
@@ -441,13 +437,11 @@ async function doLogin(){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({voter: name})
     });
-    if(res.status === 201){
+    if(res.status === 200 || res.status === 201){
       voterId = name;
       localStorage.setItem(VOTER_KEY, voterId);
       document.getElementById('loginWrap').classList.remove('show');
       await startApp();
-    } else if(res.status === 409){
-      err.textContent = 'Tohle jméno už někdo má, zkus jiné.';
     } else {
       const j = await res.json().catch(() => ({}));
       err.textContent = j.error || 'Něco se pokazilo, zkus to znovu.';

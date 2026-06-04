@@ -2,15 +2,17 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema } from '../../lib/db.js';
 
 // POST /api/voter/register  body: {"voter":"<string>"}
-//   Vytvoří nový voter záznam. Vrací:
-//     201 {ok:true}      → registrace prošla
-//     409 {error:"obsazený"} → tenhle string už existuje
-//     400 {error:"..."}  → validační chyba
+//   Login-or-create: pokud jméno existuje, host se přes ně přihlásí.
+//   Pokud neexistuje, vytvoří se nový záznam.
+//   POZOR: bez hesla je to "známka", ne autentizace – kdo zná cizí jméno,
+//   přihlásí se pod ním. Pro pivní akci s neformálními přezdívkami v pořádku.
+//   Vrací:
+//     201 {ok:true, created:true}  → nový voter
+//     200 {ok:true, created:false} → přihlášení k existujícímu
+//     400 {error:"..."}            → validační chyba
 //
 // GET  /api/voter/check?voter=<string>  → {exists: boolean}
-//   Ověří, jestli string v DB existuje (pro auto-login).
-//   Frontend si pamatuje voter v localStorage; při startu si ověří,
-//   že v DB pořád existuje (mohla se mezitím vymazat).
+//   Ověří, jestli string v DB existuje (pro auto-login při návratu).
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 
@@ -37,19 +39,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'jméno musí mít 2–32 znaků' });
   }
 
-  // Pokus o INSERT; konflikt na PRIMARY KEY znamená, že už je obsazené.
-  try {
-    await sql`
-      INSERT INTO voters (voter, created)
-      VALUES (${voter}, ${Date.now()})
-    `;
-    return res.status(201).json({ ok: true });
-  } catch (err: unknown) {
-    // Postgres unique violation = SQLSTATE 23505
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('duplicate key') || msg.includes('23505')) {
-      return res.status(409).json({ error: 'tohle jméno už někdo má, zkus jiné' });
-    }
-    throw err;
-  }
+  // INSERT ... ON CONFLICT DO NOTHING + zjištění, jestli se opravdu vložilo.
+  // Vracíme různé status kódy podle toho.
+  const result = (await sql`
+    INSERT INTO voters (voter, created)
+    VALUES (${voter}, ${Date.now()})
+    ON CONFLICT (voter) DO NOTHING
+    RETURNING voter
+  `) as { voter: string }[];
+
+  const created = result.length > 0;
+  return res.status(created ? 201 : 200).json({ ok: true, created });
 }

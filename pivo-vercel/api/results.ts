@@ -6,6 +6,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
   const results = await computeResults();
   // krátká cache, ať polling nezabíjí DB při mnoha divácích na /display
-  res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=2');
+  // Cache na 10 s – display polluje po 30 s, takže typicky každý request
+  // jde znovu na backend, ale když jich přijde víc najednou (např. víc TV),
+  // Vercel jim během 10 s vrátí stejnou odpověď.
+  res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=20');
   res.json(results);
 }
