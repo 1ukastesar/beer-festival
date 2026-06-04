@@ -22,6 +22,11 @@ export async function ensureSchema(): Promise<void> {
       created BIGINT  NOT NULL
     )`;
   await sql`
+    CREATE TABLE IF NOT EXISTS voters (
+      voter   TEXT PRIMARY KEY,
+      created BIGINT NOT NULL
+    )`;
+  await sql`
     CREATE TABLE IF NOT EXISTS votes (
       id      BIGSERIAL PRIMARY KEY,
       voter   TEXT NOT NULL,

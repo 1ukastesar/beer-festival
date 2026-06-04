@@ -42,6 +42,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'chybí nebo neplatné voter id' });
   }
 
+  // Voter musí být registrovaný (založený přes /api/voter/register).
+  // Bez tohoto checku by kdokoli mohl posílat hlasy s libovolným jménem.
+  const voterCheck = (await sql`
+    SELECT 1 FROM voters WHERE voter = ${voter} LIMIT 1
+  `) as { '?column?': number }[];
+  if (voterCheck.length === 0) {
+    return res.status(401).json({ error: 'nepřihlášen – zaregistruj se znovu' });
+  }
+
   // Načteme stav piv (active flag) a předchozí hlasy voteru.
   const beersRows = (await sql`SELECT name, active FROM beers`) as { name: string; active: boolean }[];
   const beerState = new Map(beersRows.map((b) => [b.name, b.active]));

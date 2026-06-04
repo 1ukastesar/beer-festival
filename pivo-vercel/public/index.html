@@ -57,9 +57,10 @@
   .hint{text-align:center;font-style:italic;font-size:.9rem;color:var(--dark);opacity:.65;margin-top:10px;}
 
   /* žebříček po odeslání */
+  .vote-wrap{display:none;}
+  .vote-wrap.show{display:block;}
   .board-wrap{display:none;}
   .board-wrap.show{display:block;}
-  .vote-wrap.hide{display:none;}
   .bhead{text-align:center;margin-bottom:18px;}
   .bhead h2{font-family:'Alfa Slab One',cursive;font-size:1.6rem;color:var(--foam);text-shadow:2px 2px 0 var(--amber-deep);}
   .bhead .sub{color:var(--dark);font-style:italic;font-size:.85rem;opacity:.7;margin-top:4px;}
@@ -77,7 +78,20 @@
   .edit{width:100%;margin-top:16px;padding:14px;font-family:'Alfa Slab One',cursive;font-size:1.05rem;background:var(--foam);color:var(--amber-deep);border:3px solid var(--dark);border-radius:14px;box-shadow:0 5px 0 var(--shadow);cursor:pointer;}
   .edit:active{transform:translateY(2px);box-shadow:0 3px 0 var(--shadow);}
 
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:var(--dark);color:var(--foam);padding:12px 22px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px var(--shadow);opacity:0;transition:all .3s;z-index:50;}
+  /* login obrazovka */
+  .login-wrap{display:none;max-width:480px;margin:30px auto 0;}
+  .login-wrap.show{display:block;}
+  .login-card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:24px 20px;box-shadow:6px 6px 0 var(--shadow);}
+  .login-card h2{font-family:'Alfa Slab One',cursive;font-size:1.3rem;color:var(--amber-deep);margin-bottom:8px;text-align:center;}
+  .login-card p{font-style:italic;font-size:.9rem;color:var(--dark);opacity:.75;text-align:center;margin-bottom:16px;}
+  .login-card input{width:100%;font-family:'Fraunces',serif;font-size:1.1rem;padding:12px 14px;border:2px solid var(--dark);border-radius:12px;background:var(--cream);color:var(--dark);}
+  .login-card input:focus{outline:none;border-color:var(--green);}
+  .login-card .login-btn{width:100%;margin-top:12px;padding:14px;font-family:'Alfa Slab One',cursive;font-size:1.1rem;background:var(--dark);color:var(--gold);border:3px solid var(--gold);border-radius:14px;box-shadow:0 5px 0 var(--shadow);cursor:pointer;}
+  .login-card .login-btn:active{transform:translateY(2px);box-shadow:0 3px 0 var(--shadow);}
+  .login-card .err{color:#b32a1f;font-size:.85rem;margin-top:8px;text-align:center;min-height:1em;}
+  .login-card .info{font-size:.78rem;font-style:italic;color:var(--dark);opacity:.6;margin-top:10px;text-align:center;line-height:1.4;}
+
+
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
   .footer{text-align:center;margin-top:20px;color:var(--dark);opacity:.6;font-style:italic;font-size:.9rem;}
 </style>
@@ -88,9 +102,20 @@
     <p>Ohodnoť piva 1–10</p>
   </div>
 
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-card">
+      <h2>🍺 Vítej</h2>
+      <p>Zadej si svoje jméno pro hlasování. Použijeme ho jen pro tebe, nikdo jiný ho nevidí.</p>
+      <input type="text" id="loginInput" placeholder="Tvoje jméno" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="login-btn" id="loginBtn">Pokračovat</button>
+      <div class="err" id="loginErr"></div>
+      <div class="info">Jméno si zapamatujeme na tomto zařízení a příště ho zadávat nemusíš.</div>
+    </div>
+  </div>
+
   <div class="vote-wrap" id="voteWrap">
     <div class="stickyboard" id="stickyboard">
-      <h3>🏆 Aktuální pořadí</h3>
+      <h3 id="stickyboardTitle">🏆 Aktuální pořadí</h3>
       <div id="sticky"></div>
     </div>
     <div id="list"></div>
@@ -111,13 +136,9 @@
   <div class="toast" id="toast"></div>
 
 <script>
-// --- stálá identita hlasujícího ---
+// --- identita hlasujícího (vlastní string, registrovaný v DB) ---
 const VOTER_KEY = 'pivo_voter_id';
-let voterId = localStorage.getItem(VOTER_KEY);
-if(!voterId){
-  voterId = (crypto.randomUUID ? crypto.randomUUID() : 'v'+Date.now()+Math.random().toString(36).slice(2));
-  localStorage.setItem(VOTER_KEY, voterId);
-}
+let voterId = localStorage.getItem(VOTER_KEY) || '';
 
 // activeBeers: pole jmen piv, co jsou teď na čepu (z /api/beers)
 // myVotes: {beer: {score, note, active}} z /api/vote?voter=
@@ -170,7 +191,7 @@ function renderCards(){
       `<div class="beer-name"><span class="lbl">${beer}</span>${clrBtn}</div>`+
       `<div class="scale">${nums}</div>`+
       `<div class="note">`+
-        `<label for="${noteId}"><span>Postřeh (jen pro mě)</span><span class="cnt"><span class="cur">${note.length}</span>/100</span></label>`+
+        `<label for="${noteId}"><span>Poznámky k pivu</span><span class="cnt"><span class="cur">${note.length}</span>/100</span></label>`+
         `<textarea id="${noteId}" maxlength="100" placeholder="Co tě napadlo?">${escapeHtml(note)}</textarea>`+
       `</div>`;
 
@@ -210,6 +231,10 @@ function renderCards(){
 
     list.appendChild(card);
   });
+  // sticky leaderboard (moje skóre) se vždy aktualizuje s kartami
+  if(document.getElementById('stickyboard').classList.contains('show')){
+    renderMySticky();
+  }
 }
 
 function escapeHtml(s){
@@ -238,6 +263,12 @@ async function submitVotes(){
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({voter:voterId, votes})
     });
+    if(res.status === 401){
+      // voter v DB zmizel (admin reset) – zpět na login
+      localStorage.removeItem(VOTER_KEY); voterId = '';
+      showLogin('Tvoje jméno už neexistuje, zaregistruj se znovu.');
+      return;
+    }
     if(!res.ok) throw new Error(await res.text());
     toast('Odesláno, díky! 🍻');
     // reload moje hlasy a zobraz žebříček
@@ -259,7 +290,7 @@ async function loadMyVotes(){
 }
 
 function showBoard(){
-  document.getElementById('voteWrap').classList.add('hide');
+  document.getElementById('voteWrap').classList.remove('show');
   document.getElementById('boardWrap').classList.add('show');
   document.getElementById('stickyboard').classList.remove('show');
   if(!pollTimer){
@@ -274,21 +305,20 @@ async function pollBoard(){
     if(res.ok){
       lastResults = await res.json();
       renderBoard(lastResults);
-      renderSticky(lastResults);
     }
   }catch(err){}
 }
 
 function showVote(focusBeer){
   document.getElementById('boardWrap').classList.remove('show');
-  document.getElementById('voteWrap').classList.remove('hide');
-  // sticky leaderboard při editaci
+  document.getElementById('voteWrap').classList.add('show');
+  // sticky leaderboard při editaci ukazuje MOJE hodnocení (ne celkový žebříček)
   document.getElementById('stickyboard').classList.add('show');
-  // pokud poll neběží, spusť ho (sticky se má aktualizovat živě)
-  if(!pollTimer){
-    pollBoard();
-    pollTimer = setInterval(pollBoard, 2500);
-  }
+  document.getElementById('stickyboardTitle').textContent = '⭐ Moje hodnocení';
+  renderMySticky();
+  // polling celkového žebříčku pro editaci nepotřebujeme – zastav ho, ať
+  // sticky neukazuje cizí data omylem
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
   renderCards();
   if(focusBeer){
     requestAnimationFrame(()=>{
@@ -338,39 +368,121 @@ function renderBoard(data){
   });
 }
 
-function renderSticky(data){
-  data = [...data].sort((a,b)=>b.avg-a.avg);
+function renderMySticky(){
   const wrap = document.getElementById('sticky');
-  const medals=['🥇','🥈','🥉'];
-  if(data.every(d=>d.count===0)){ wrap.innerHTML='<div style="text-align:center;font-style:italic;opacity:.6;color:var(--foam);padding:6px;">Zatím žádné hlasy</div>'; return; }
-  wrap.innerHTML='';
-  data.forEach((d,i)=>{
-    if(d.count===0) return;
-    const row=document.createElement('div');
-    row.className='sb-row'+(i===0?' top':'');
-    const rank=(i<3)?medals[i]:(i+1);
-    row.innerHTML='<div class="r">'+rank+'</div><div class="n">'+escapeHtml(d.beer)+'</div><div class="v">'+d.avg.toFixed(1)+'</div>';
-    row.addEventListener('click', ()=>{
-      // skroluj k odpovídající kartě
-      const card = document.querySelector('.card[data-beer="'+cssEscape(d.beer)+'"]');
+  // sebereme moje skóre + aktuální výběr (kdybych něco překlikl, ale ještě neuložil)
+  // selection má přednost před myVotes (rozpracovaná editace)
+  const merged = {};
+  for(const b of Object.keys(myVotes)){
+    merged[b] = { score: myVotes[b].score };
+  }
+  for(const b of Object.keys(selection)){
+    const s = selection[b];
+    if(s && typeof s.score === 'number'){
+      merged[b] = { score: s.score };
+    }
+  }
+  const entries = Object.keys(merged).map(b => ({beer: b, score: merged[b].score}));
+  if(entries.length === 0){
+    wrap.innerHTML = '<div style="text-align:center;font-style:italic;opacity:.6;color:var(--foam);padding:6px;">Zatím jsi nic neohodnotil</div>';
+    return;
+  }
+  entries.sort((a,b) => b.score - a.score);
+  const medals = ['🥇','🥈','🥉'];
+  wrap.innerHTML = '';
+  entries.forEach((d,i) => {
+    const row = document.createElement('div');
+    row.className = 'sb-row' + (i === 0 ? ' top' : '');
+    const rank = (i < 3) ? medals[i] : (i + 1);
+    row.innerHTML = '<div class="r">' + rank + '</div><div class="n">' + escapeHtml(d.beer) + '</div><div class="v">' + d.score + '</div>';
+    row.addEventListener('click', () => {
+      const card = document.querySelector('.card[data-beer="' + cssEscape(d.beer) + '"]');
       if(card){
         card.scrollIntoView({behavior:'smooth', block:'start'});
         card.classList.add('focus-flash');
-        setTimeout(()=>card.classList.remove('focus-flash'), 1300);
+        setTimeout(() => card.classList.remove('focus-flash'), 1300);
       }
     });
     wrap.appendChild(row);
   });
 }
 
-async function init(){
+// ---------- LOGIN ----------
+function showLogin(msg){
+  document.getElementById('loginWrap').classList.add('show');
+  document.getElementById('voteWrap').classList.remove('show');
+  document.getElementById('boardWrap').classList.remove('show');
+  if(msg) document.getElementById('loginErr').textContent = msg;
+  setTimeout(() => document.getElementById('loginInput').focus(), 50);
+}
+
+async function tryAutoLogin(){
+  if(!voterId) return false;
+  try{
+    const r = await fetch('/api/voter/check?voter=' + encodeURIComponent(voterId));
+    if(!r.ok) return false;
+    const j = await r.json();
+    return !!j.exists;
+  }catch(e){ return false; }
+}
+
+async function doLogin(){
+  const input = document.getElementById('loginInput');
+  const err = document.getElementById('loginErr');
+  const name = input.value.trim();
+  err.textContent = '';
+  if(name.length < 2){
+    err.textContent = 'Jméno musí mít aspoň 2 znaky.';
+    return;
+  }
+  try{
+    const res = await fetch('/api/voter/register', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({voter: name})
+    });
+    if(res.status === 201){
+      voterId = name;
+      localStorage.setItem(VOTER_KEY, voterId);
+      document.getElementById('loginWrap').classList.remove('show');
+      await startApp();
+    } else if(res.status === 409){
+      err.textContent = 'Tohle jméno už někdo má, zkus jiné.';
+    } else {
+      const j = await res.json().catch(() => ({}));
+      err.textContent = j.error || 'Něco se pokazilo, zkus to znovu.';
+    }
+  }catch(e){
+    err.textContent = 'Chyba spojení, zkus to znovu.';
+  }
+}
+
+async function startApp(){
   activeBeers = await (await fetch('/api/beers')).json();
   await loadMyVotes();
   renderCards();
+  document.getElementById('voteWrap').classList.add('show');
   // pokud už dřív hlasoval, rovnou ukaž žebříček (s možností úpravy)
-  if(Object.keys(myVotes).length>0){ showBoard(); }
+  if(Object.keys(myVotes).length > 0){ showBoard(); }
+}
+
+async function init(){
   document.getElementById('submitBtn').addEventListener('click', submitVotes);
-  document.getElementById('editBtn').addEventListener('click', ()=>showVote());
+  document.getElementById('editBtn').addEventListener('click', () => showVote());
+  document.getElementById('loginBtn').addEventListener('click', doLogin);
+  document.getElementById('loginInput').addEventListener('keydown', e => {
+    if(e.key === 'Enter') doLogin();
+  });
+
+  // Auto-login: pokud máme v localStorage voter ID, ověříme ho proti DB.
+  // (DB se mohla mezi akcemi vymazat – pak musíme zpět na login.)
+  if(await tryAutoLogin()){
+    await startApp();
+  } else {
+    // staré ID neplatí, smaž ho a ukaž login
+    if(voterId){ localStorage.removeItem(VOTER_KEY); voterId = ''; }
+    showLogin();
+  }
 }
 init();
 </script>
