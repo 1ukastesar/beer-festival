@@ -434,13 +434,14 @@ function showLogin(msg){
 }
 
 async function tryAutoLogin(){
-  if(!voterId) return false;
+  if(!voterId) return { ok: true, exists: false };
   try{
-    const r = await fetch('/api/voter/check?voter=' + encodeURIComponent(voterId));
-    if(!r.ok) return false;
+    // GET handler žije v api/voter/register.ts → /api/voter/register
+    const r = await fetch('/api/voter/register?voter=' + encodeURIComponent(voterId));
+    if(!r.ok) return { ok: false };
     const j = await r.json();
-    return !!j.exists;
-  }catch(e){ return false; }
+    return { ok: true, exists: !!j.exists };
+  }catch(e){ return { ok: false }; }
 }
 
 async function doLogin(){
@@ -490,12 +491,16 @@ async function init(){
   });
 
   // Auto-login: pokud máme v localStorage voter ID, ověříme ho proti DB.
-  // (DB se mohla mezi akcemi vymazat – pak musíme zpět na login.)
-  if(await tryAutoLogin()){
+  const check = await tryAutoLogin();
+  if(check.ok && check.exists){
     await startApp();
-  } else {
-    // staré ID neplatí, smaž ho a ukaž login
+  } else if(check.ok && !check.exists){
+    // server potvrdil, že jméno v DB není (reset akce) → smaž a ukaž login
     if(voterId){ localStorage.removeItem(VOTER_KEY); voterId = ''; }
+    showLogin();
+  } else {
+    // síťová chyba – jméno nemaž, jen ho předvyplň, host klikne Pokračovat
+    if(voterId){ document.getElementById('loginInput').value = voterId; }
     showLogin();
   }
 }
