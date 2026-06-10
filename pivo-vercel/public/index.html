@@ -2,98 +2,119 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pivní slavnosti – Hodnocení</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
   :root{
-    --amber:#d68910;--amber-deep:#b9770e;--foam:#fdf6e3;--dark:#2b1d0e;
-    --cream:#f5e6c8;--green:#4f7942;--shadow:rgba(43,29,14,.25);--gold:#f1c40f;--gray:#8a7860;
+    --bg:#FAF6EE; --card:#FFFFFF; --ink:#241607; --muted:#9A8B77; --line:#ECE2D2;
+    --amber:#E8930C; --amber-deep:#B96F03; --fill-a:#FFC94B; --fill-b:#F09A12;
+    --danger:#C2402A;
+    --r-lg:20px; --r-md:14px;
+    --shadow-card:0 1px 2px rgba(36,22,7,.04),0 10px 30px rgba(36,22,7,.06);
+    --shadow-pop:0 6px 24px rgba(36,22,7,.18);
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-  body{font-family:'Fraunces',Georgia,serif;background:radial-gradient(ellipse at top,#e8a93a 0%,#c8861a 40%,#9c640c 100%);color:var(--dark);min-height:100vh;padding:24px 18px 40px;overflow-x:hidden;}
-  .head{text-align:center;margin-bottom:22px;}
-  .head h1{font-family:'Alfa Slab One',cursive;font-size:2.1rem;line-height:1.05;color:var(--foam);text-shadow:3px 3px 0 var(--amber-deep),5px 5px 0 var(--shadow);letter-spacing:.5px;}
-  .head p{color:var(--dark);font-style:italic;margin-top:6px;font-size:1.05rem;opacity:.8;}
+  html{-webkit-text-size-adjust:100%;}
+  body{font-family:'Instrument Sans',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);min-height:100dvh;padding:20px 16px calc(96px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;}
+  button{font:inherit;}
+  :focus-visible{outline:3px solid var(--amber);outline-offset:2px;border-radius:6px;}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
 
-  /* leaderboard mých skóre nahoře při editaci (ne-sticky – skroluje s obsahem) */
-  .stickyboard{margin:-6px -6px 16px;padding:10px 8px 8px;border-radius:14px;background:rgba(43,29,14,.92);box-shadow:0 4px 12px rgba(0,0,0,.25);display:none;}
-  .stickyboard.show{display:block;}
-  .stickyboard h3{font-family:'Alfa Slab One',cursive;font-size:.95rem;color:var(--gold);text-align:center;margin-bottom:6px;letter-spacing:.5px;}
-  .sb-row{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;color:var(--foam);font-size:.85rem;cursor:pointer;transition:background .12s;}
-  .sb-row:active{background:rgba(253,246,227,.15);}
-  .sb-row .r{font-family:'Alfa Slab One',cursive;color:var(--amber);text-align:center;}
-  .sb-row.top .r{color:var(--gold);}
-  .sb-row .n{font-family:'Alfa Slab One',cursive;font-size:.85rem;}
-  .sb-row .v{font-family:'Alfa Slab One',cursive;font-size:.95rem;}
+  .head{margin:6px 2px 20px;}
+  .head h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.75rem;line-height:1.05;letter-spacing:-.02em;}
+  .head h1::after{content:"";display:block;width:44px;height:5px;border-radius:99px;background:linear-gradient(90deg,var(--fill-a),var(--amber));margin-top:10px;}
+  .head p{color:var(--muted);font-size:.95rem;margin-top:8px;}
 
-  .card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:18px 16px;margin-bottom:14px;box-shadow:6px 6px 0 var(--shadow);scroll-margin-top:16px;}
-  .card.inactive{opacity:.92;border-color:var(--gray);}
-  .card.focus-flash{animation:flash 1.2s ease;}
-  @keyframes flash{0%{box-shadow:0 0 0 0 var(--gold),6px 6px 0 var(--shadow);}40%{box-shadow:0 0 0 6px var(--gold),6px 6px 0 var(--shadow);}100%{box-shadow:0 0 0 0 var(--gold),6px 6px 0 var(--shadow);}}
-  .beer-name{font-family:'Alfa Slab One',cursive;font-size:1.3rem;color:var(--amber-deep);margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:space-between;}
-  .beer-name .lbl{display:flex;align-items:center;gap:8px;}
-  .beer-name .lbl::before{content:"🍺";}
-  .card.inactive .beer-name{color:var(--gray);}
-  .card.inactive .lbl::after{content:"není na čepu";font-family:'Fraunces',serif;font-size:.7rem;font-style:italic;font-weight:400;opacity:.7;margin-left:6px;}
-  .clr{font-family:'Fraunces',serif;font-size:.8rem;font-style:italic;color:var(--dark);opacity:.5;background:none;border:none;cursor:pointer;text-decoration:underline;}
+  /* login */
+  .login-wrap{display:none;margin-top:6vh;}
+  .login-wrap.show{display:block;}
+  .login-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:28px 22px;box-shadow:var(--shadow-card);}
+  .login-card h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.35rem;margin-bottom:8px;}
+  .login-card p{color:var(--muted);font-size:.95rem;line-height:1.5;margin-bottom:18px;}
+  .login-card input{width:100%;font:inherit;font-size:1.05rem;padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--r-md);background:#FDFBF7;color:var(--ink);}
+  .login-card input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,147,12,.15);}
+  .login-card .login-btn{width:100%;margin-top:12px;padding:16px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.05rem;background:var(--ink);color:#FFF6E9;border:none;border-radius:var(--r-md);cursor:pointer;}
+  .login-card .login-btn:active{transform:scale(.985);}
+  .login-card .err{color:var(--danger);font-size:.9rem;margin-top:10px;text-align:center;min-height:1.2em;}
+  .login-card .info{font-size:.82rem;color:var(--muted);margin-top:12px;text-align:center;line-height:1.45;}
 
-  .scale{display:flex;flex-wrap:wrap;gap:7px;}
-  .scale button.num{flex:1 1 calc(20% - 7px);min-width:46px;aspect-ratio:1;font-family:'Fraunces',serif;font-weight:600;font-size:1.2rem;background:var(--cream);border:2px solid var(--dark);border-radius:12px;color:var(--dark);cursor:pointer;transition:all .12s ease;}
-  .scale button.num:active:not(:disabled){transform:scale(.9);}
-  .scale button.num.sel{background:var(--green);color:var(--foam);transform:scale(1.05);box-shadow:0 0 0 3px var(--foam),0 0 0 5px var(--green);}
-  .scale button.num:disabled{cursor:not-allowed;opacity:.55;}
-  .scale button.num.sel:disabled{background:var(--gray);box-shadow:0 0 0 3px var(--foam),0 0 0 5px var(--gray);}
-
-  .note{margin-top:12px;}
-  .note label{font-family:'Fraunces',serif;font-style:italic;font-size:.85rem;color:var(--dark);opacity:.7;display:flex;justify-content:space-between;margin-bottom:4px;}
-  .note textarea{width:100%;font-family:'Fraunces',serif;font-size:.95rem;color:var(--dark);background:var(--cream);border:2px solid var(--dark);border-radius:10px;padding:8px 10px;resize:none;min-height:54px;}
-  .note textarea:focus{outline:none;border-color:var(--green);}
-  .note .cnt{font-size:.75rem;}
-
-  .submit{position:sticky;bottom:16px;width:100%;margin-top:20px;padding:18px;font-family:'Alfa Slab One',cursive;font-size:1.3rem;background:var(--dark);color:var(--gold);border:3px solid var(--gold);border-radius:16px;box-shadow:0 6px 0 var(--shadow);cursor:pointer;transition:all .12s;z-index:10;}
-  .submit:active{transform:translateY(3px);box-shadow:0 3px 0 var(--shadow);}
-  .submit:disabled{opacity:.4;cursor:not-allowed;}
-  .hint{text-align:center;font-style:italic;font-size:.9rem;color:var(--dark);opacity:.65;margin-top:10px;}
-
-  /* žebříček po odeslání */
   .vote-wrap{display:none;}
   .vote-wrap.show{display:block;}
   .board-wrap{display:none;}
   .board-wrap.show{display:block;}
-  .bhead{text-align:center;margin-bottom:18px;}
-  .bhead h2{font-family:'Alfa Slab One',cursive;font-size:1.6rem;color:var(--foam);text-shadow:2px 2px 0 var(--amber-deep);}
-  .bhead .sub{color:var(--dark);font-style:italic;font-size:.85rem;opacity:.7;margin-top:4px;}
-  .brow{display:grid;grid-template-columns:42px 1fr 64px;align-items:center;gap:10px;background:var(--foam);border:3px solid var(--dark);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:4px 4px 0 var(--shadow);cursor:pointer;transition:transform .12s;}
-  .brow:active{transform:translateY(2px);box-shadow:2px 2px 0 var(--shadow);}
-  .brow.top{border-color:var(--gold);background:#fff8e1;}
-  .brow.mine{box-shadow:4px 4px 0 var(--shadow),0 0 0 2px var(--green);}
-  .brank{font-family:'Alfa Slab One',cursive;font-size:1.5rem;text-align:center;color:var(--amber-deep);}
-  .bname{font-family:'Alfa Slab One',cursive;font-size:1.05rem;color:var(--dark);display:flex;align-items:center;gap:6px;}
-  .bname .myhint{font-family:'Fraunces',serif;font-weight:400;font-style:italic;font-size:.7rem;color:var(--green);opacity:.85;}
-  .bbar{height:8px;background:rgba(43,29,14,.15);border-radius:20px;overflow:hidden;margin-top:5px;}
-  .bbar > div{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:20px;transition:width .7s;}
-  .bavg{text-align:right;font-family:'Alfa Slab One',cursive;font-size:1.5rem;color:var(--dark);}
-  .bcnt{text-align:right;font-size:.7rem;font-style:italic;opacity:.55;}
-  .edit{width:100%;margin-top:16px;padding:14px;font-family:'Alfa Slab One',cursive;font-size:1.05rem;background:var(--foam);color:var(--amber-deep);border:3px solid var(--dark);border-radius:14px;box-shadow:0 5px 0 var(--shadow);cursor:pointer;}
-  .edit:active{transform:translateY(2px);box-shadow:0 3px 0 var(--shadow);}
 
-  /* login obrazovka */
-  .login-wrap{display:none;max-width:480px;margin:30px auto 0;}
-  .login-wrap.show{display:block;}
-  .login-card{background:var(--foam);border:3px solid var(--dark);border-radius:18px;padding:24px 20px;box-shadow:6px 6px 0 var(--shadow);}
-  .login-card h2{font-family:'Alfa Slab One',cursive;font-size:1.3rem;color:var(--amber-deep);margin-bottom:8px;text-align:center;}
-  .login-card p{font-style:italic;font-size:.9rem;color:var(--dark);opacity:.75;text-align:center;margin-bottom:16px;}
-  .login-card input{width:100%;font-family:'Fraunces',serif;font-size:1.1rem;padding:12px 14px;border:2px solid var(--dark);border-radius:12px;background:var(--cream);color:var(--dark);}
-  .login-card input:focus{outline:none;border-color:var(--green);}
-  .login-card .login-btn{width:100%;margin-top:12px;padding:14px;font-family:'Alfa Slab One',cursive;font-size:1.1rem;background:var(--dark);color:var(--gold);border:3px solid var(--gold);border-radius:14px;box-shadow:0 5px 0 var(--shadow);cursor:pointer;}
-  .login-card .login-btn:active{transform:translateY(2px);box-shadow:0 3px 0 var(--shadow);}
-  .login-card .err{color:#b32a1f;font-size:.85rem;margin-top:8px;text-align:center;min-height:1em;}
-  .login-card .info{font-size:.78rem;font-style:italic;color:var(--dark);opacity:.6;margin-top:10px;text-align:center;line-height:1.4;}
+  /* moje hodnocení nahoře při editaci (skroluje s obsahem) */
+  .stickyboard{display:none;background:#FFF6E2;border:1px solid #F3E3BC;border-radius:var(--r-lg);padding:14px 14px 6px;margin-bottom:16px;}
+  .stickyboard.show{display:block;}
+  .stickyboard h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:.95rem;color:var(--amber-deep);margin-bottom:4px;}
+  .sb-row{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid #F6EBCD;font-size:.95rem;cursor:pointer;}
+  .sb-row:first-child{border-top:none;}
+  .sb-row .r{text-align:center;}
+  .sb-row .n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sb-row .v{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.05rem;color:var(--amber-deep);}
 
+  /* karta piva */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 16px 16px;margin-bottom:14px;box-shadow:var(--shadow-card);scroll-margin-top:16px;}
+  .card.inactive{background:#FBF9F4;}
+  .card.focus-flash{animation:flash 1s ease 2;}
+  @keyframes flash{0%{box-shadow:0 0 0 0 rgba(232,147,12,.5);}70%{box-shadow:0 0 0 12px rgba(232,147,12,0);}100%{box-shadow:0 0 0 0 rgba(232,147,12,0);}}
+  .beer-name{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.15rem;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
+  .beer-name .lbl{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}
+  .beer-name .lbl::before{content:"🍺";font-size:1rem;}
+  .card.inactive .beer-name{color:var(--muted);}
+  .card.inactive .lbl::after{content:"není na čepu";font-family:'Instrument Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--amber-deep);background:#FFF1D2;border:1px solid #F3DFAE;padding:3px 9px;border-radius:999px;}
+  .clr{font-size:.82rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:4px;flex-shrink:0;}
 
+  /* beer meter 1–10: vybrané skóre vyplní segmenty jako pivo ve sklenici */
+  .scale{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;}
+  .scale button.num{height:56px;border:1.5px solid var(--line);border-radius:8px;background:#FDFBF7;color:var(--muted);font-size:.92rem;font-weight:600;cursor:pointer;padding:0;transition:background .12s,color .12s,border-color .12s;}
+  .scale button.num:first-child{border-top-left-radius:14px;border-bottom-left-radius:14px;}
+  .scale button.num:last-child{border-top-right-radius:14px;border-bottom-right-radius:14px;}
+  .scale button.num:has(~ button.num.sel){background:linear-gradient(180deg,var(--fill-a),var(--fill-b));border-color:#E09110;color:#8A5200;}
+  .scale button.num.sel{background:linear-gradient(180deg,#F2A21B,#D97E06);border-color:var(--amber-deep);color:#fff;font-weight:700;box-shadow:0 2px 10px rgba(217,126,6,.35);}
+  .scale button.num:active:not(:disabled){transform:scale(.93);}
+  .scale button.num:disabled{cursor:not-allowed;opacity:.5;}
+  .card.inactive .scale button.num:has(~ button.num.sel){background:#EAE3D7;border-color:#DBD1C0;color:#8F8472;}
+  .scale button.num.sel:disabled{background:#B9AC9A;border-color:#A39681;color:#fff;box-shadow:none;opacity:.8;}
+  @media (max-width:374px){
+    .scale{gap:3px;}
+    .scale button.num{height:52px;font-size:.84rem;}
+  }
+
+  .note{margin-top:14px;}
+  .note label{display:flex;justify-content:space-between;font-size:.85rem;font-weight:500;color:var(--muted);margin-bottom:6px;}
+  .note textarea{width:100%;font:inherit;font-size:1rem;background:#FDFBF7;border:1.5px solid var(--line);border-radius:var(--r-md);padding:10px 12px;min-height:56px;resize:none;color:var(--ink);}
+  .note textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,147,12,.15);}
+  .note .cnt{font-variant-numeric:tabular-nums;}
+
+  .submit{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));width:min(100% - 32px,528px);padding:17px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.1rem;background:var(--ink);color:#FFF6E9;border:none;border-radius:16px;box-shadow:var(--shadow-pop);cursor:pointer;z-index:20;}
+  .submit:active{transform:translateX(-50%) scale(.985);}
+  .submit:disabled{opacity:.45;cursor:not-allowed;}
+  .hint{text-align:center;font-size:.85rem;color:var(--muted);line-height:1.5;margin-top:14px;padding:0 8px;}
+
+  /* žebříček */
+  .bhead{margin:4px 2px 14px;}
+  .bhead h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.5rem;letter-spacing:-.01em;}
+  .bhead .sub{color:var(--muted);font-size:.9rem;margin-top:4px;}
+  .brow{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow-card);cursor:pointer;}
+  .brow:active{transform:scale(.99);}
+  .brow.top{border-color:#F0C75E;background:linear-gradient(180deg,#FFFDF6,#FFF7E0);}
+  .brow.mine{box-shadow:var(--shadow-card),inset 0 0 0 1.5px rgba(232,147,12,.45);}
+  .brank{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.2rem;color:var(--muted);text-align:center;}
+  .brow.top .brank{color:var(--amber-deep);}
+  .bname{font-weight:600;font-size:1rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}
+  .bname .myhint{font-size:.72rem;font-weight:600;color:var(--amber-deep);background:#FFF1D2;padding:2px 8px;border-radius:999px;}
+  .bbar{height:6px;background:#F1EADC;border-radius:99px;overflow:hidden;margin-top:6px;}
+  .bbar > div{height:100%;background:linear-gradient(90deg,var(--fill-a),var(--amber));border-radius:99px;transition:width .6s;}
+  .bavg{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.35rem;text-align:right;}
+  .bcnt{font-size:.72rem;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;}
+  .edit{width:100%;margin-top:14px;padding:16px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1rem;background:var(--card);color:var(--ink);border:1.5px solid var(--ink);border-radius:var(--r-md);cursor:pointer;}
+  .edit:active{transform:scale(.99);}
+
+  .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#FFF6E9;padding:12px 20px;border-radius:999px;font-weight:600;font-size:.95rem;box-shadow:var(--shadow-pop);opacity:0;transition:all .25s;z-index:50;pointer-events:none;white-space:nowrap;}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
-  .footer{text-align:center;margin-top:20px;color:var(--dark);opacity:.6;font-style:italic;font-size:.9rem;}
+  .footer{text-align:center;margin-top:26px;color:var(--muted);font-size:.88rem;}
 </style>
 </head>
 <body>
@@ -125,7 +146,7 @@
 
   <div class="board-wrap" id="boardWrap">
     <div class="bhead">
-      <h2>🍺 Žebříček 🍺</h2>
+      <h2>Žebříček</h2>
       <div class="sub">Klikni na pivo pro úpravu tvého hodnocení</div>
     </div>
     <div id="board"></div>
