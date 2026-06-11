@@ -14,19 +14,21 @@ export function adminPassword(): string {
 let initialized = false;
 export async function ensureSchema(): Promise<void> {
   if (initialized) return;
-  await sql`
+  // Tři CREATE jsou nezávislé → paralelně (šetří cold start).
+  await Promise.all([
+    sql`
     CREATE TABLE IF NOT EXISTS beers (
       name    TEXT PRIMARY KEY,
       active  BOOLEAN NOT NULL DEFAULT true,
       sort    INTEGER NOT NULL DEFAULT 0,
       created BIGINT  NOT NULL
-    )`;
-  await sql`
+    )`,
+    sql`
     CREATE TABLE IF NOT EXISTS voters (
       voter   TEXT PRIMARY KEY,
       created BIGINT NOT NULL
-    )`;
-  await sql`
+    )`,
+    sql`
     CREATE TABLE IF NOT EXISTS votes (
       id      BIGSERIAL PRIMARY KEY,
       voter   TEXT NOT NULL,
@@ -34,11 +36,13 @@ export async function ensureSchema(): Promise<void> {
       score   INTEGER NOT NULL,
       note    TEXT NOT NULL DEFAULT '',
       ts      BIGINT NOT NULL
-    )`;
-  // Pro existující DB ze starší verze schématu doplníme nový sloupec.
-  // IF NOT EXISTS dělá příkaz idempotentním.
-  await sql`ALTER TABLE votes ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes(voter)`;
+    )`,
+  ]);
+  // Migrace + index až po existenci tabulek; navzájem nezávislé.
+  await Promise.all([
+    sql`ALTER TABLE votes ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''`,
+    sql`CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes(voter)`,
+  ]);
   initialized = true;
 }
 

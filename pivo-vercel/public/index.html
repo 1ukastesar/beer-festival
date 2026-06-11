@@ -496,8 +496,12 @@ async function doLogin(){
 
 async function startApp(){
   showLoader(true);
-  activeBeers = await (await fetch('/api/beers')).json();
-  await loadMyVotes();
+  // piva a moje hlasy paralelně – ušetří jeden round-trip
+  const [beersRes] = await Promise.all([
+    fetch('/api/beers').then(r => r.json()),
+    loadMyVotes()
+  ]);
+  activeBeers = beersRes;
   renderCards();
   showLoader(false);
   document.getElementById('voteWrap').classList.add('show');

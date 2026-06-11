@@ -42,22 +42,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'chybí nebo neplatné voter id' });
   }
 
-  // Voter musí být registrovaný (založený přes /api/voter/register).
-  // Bez tohoto checku by kdokoli mohl posílat hlasy s libovolným jménem.
-  const voterCheck = (await sql`
-    SELECT 1 FROM voters WHERE voter = ${voter} LIMIT 1
-  `) as { '?column?': number }[];
+  // Tři nezávislé dotazy paralelně: registrace voteru, stav piv, předchozí hlasy.
+  const [voterCheck, beersRows, prevRows] = (await Promise.all([
+    sql`SELECT 1 FROM voters WHERE voter = ${voter} LIMIT 1`,
+    sql`SELECT name, active FROM beers`,
+    sql`SELECT beer, score FROM votes WHERE voter = ${voter}`,
+  ])) as [
+    { '?column?': number }[],
+    { name: string; active: boolean }[],
+    { beer: string; score: number }[],
+  ];
+
   if (voterCheck.length === 0) {
     return res.status(401).json({ error: 'nepřihlášen – zaregistruj se znovu' });
   }
 
-  // Načteme stav piv (active flag) a předchozí hlasy voteru.
-  const beersRows = (await sql`SELECT name, active FROM beers`) as { name: string; active: boolean }[];
   const beerState = new Map(beersRows.map((b) => [b.name, b.active]));
-
-  const prevRows = (await sql`
-    SELECT beer, score FROM votes WHERE voter = ${voter}
-  `) as { beer: string; score: number }[];
   const prevScore = new Map(prevRows.map((p) => [p.beer, p.score]));
 
   // Validace a normalizace hlasů. Pro inactive piva přepíšeme score na to,
@@ -92,13 +92,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // Upsert: smazat staré hlasy voteru, vložit nové (s notou).
+  // Upsert: smazat staré hlasy voteru, vložit nové jedním multi-row INSERTem
+  // (unnest místo cyklu = 1 dotaz místo N round-tripů do DB).
   const now = Date.now();
   await sql`DELETE FROM votes WHERE voter = ${voter}`;
-  for (const v of clean) {
+  if (clean.length > 0) {
+    const beers = clean.map((v) => v.beer);
+    const scores = clean.map((v) => v.score);
+    const notes = clean.map((v) => v.note);
     await sql`
       INSERT INTO votes (voter, beer, score, note, ts)
-      VALUES (${voter}, ${v.beer}, ${v.score}, ${v.note}, ${now})
+      SELECT ${voter}, b, s, n, ${now}
+      FROM unnest(${beers}::text[], ${scores}::int[], ${notes}::text[]) AS t(b, s, n)
     `;
   }
 
