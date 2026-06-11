@@ -39,6 +39,16 @@
   .login-card .err{color:var(--danger);font-size:.9rem;margin-top:10px;text-align:center;min-height:1.2em;}
   .login-card .info{font-size:.82rem;color:var(--muted);margin-top:12px;text-align:center;line-height:1.45;}
 
+  /* loader při načítání dat (cold start umí trvat sekundy) */
+  .loader{display:none;margin:10vh auto 0;max-width:280px;text-align:center;}
+  .loader.show{display:block;}
+  .loader .glass{font-size:2.2rem;animation:bob 1.1s ease-in-out infinite;}
+  .loader .bar{height:8px;border-radius:99px;background:#F1EADC;overflow:hidden;margin:16px 0 10px;}
+  .loader .bar > div{height:100%;width:40%;border-radius:99px;background:linear-gradient(90deg,var(--fill-a),var(--amber));animation:slide 1.2s ease-in-out infinite;}
+  .loader p{color:var(--muted);font-size:.92rem;}
+  @keyframes slide{0%{margin-left:-40%;}100%{margin-left:100%;}}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+
   .vote-wrap{display:none;}
   .vote-wrap.show{display:block;}
   .board-wrap{display:none;}
@@ -121,6 +131,12 @@
   <div class="head">
     <h1>Pivní<br>slavnosti</h1>
     <p>Ohodnoť piva 1–10</p>
+  </div>
+
+  <div class="loader show" id="loader">
+    <div class="glass">🍺</div>
+    <div class="bar"><div></div></div>
+    <p>Načítám tvoje hodnocení…</p>
   </div>
 
   <div class="login-wrap" id="loginWrap">
@@ -212,7 +228,7 @@ function renderCards(){
       `<div class="beer-name"><span class="lbl">${beer}</span>${clrBtn}</div>`+
       `<div class="scale">${nums}</div>`+
       `<div class="note">`+
-        `<label for="${noteId}"><span>Poznámky k pivu</span><span class="cnt"><span class="cur">${note.length}</span>/100</span></label>`+
+        `<label for="${noteId}"><span>Poznámky k pivu <em style="color:var(--muted);font-style:normal;font-weight:400;">· jen pro mě</em></span><span class="cnt"><span class="cur">${note.length}</span>/100</span></label>`+
         `<textarea id="${noteId}" maxlength="100">${escapeHtml(note)}</textarea>`+
       `</div>`;
 
@@ -425,7 +441,12 @@ function renderMySticky(){
 }
 
 // ---------- LOGIN ----------
+function showLoader(on){
+  document.getElementById('loader').classList.toggle('show', !!on);
+}
+
 function showLogin(msg){
+  showLoader(false);
   document.getElementById('loginWrap').classList.add('show');
   document.getElementById('voteWrap').classList.remove('show');
   document.getElementById('boardWrap').classList.remove('show');
@@ -474,9 +495,11 @@ async function doLogin(){
 }
 
 async function startApp(){
+  showLoader(true);
   activeBeers = await (await fetch('/api/beers')).json();
   await loadMyVotes();
   renderCards();
+  showLoader(false);
   document.getElementById('voteWrap').classList.add('show');
   // pokud už dřív hlasoval, rovnou ukaž žebříček (s možností úpravy)
   if(Object.keys(myVotes).length > 0){ showBoard(); }
