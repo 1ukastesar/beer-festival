@@ -42,6 +42,24 @@
   .hint{text-align:center;color:var(--muted);font-size:.85rem;line-height:1.5;margin-top:14px;}
   .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#FFF6E9;padding:12px 20px;border-radius:999px;font-weight:600;font-size:.95rem;box-shadow:var(--shadow-pop);opacity:0;transition:all .25s;z-index:50;pointer-events:none;}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  /* nebezpečná zóna */
+  .danger-card{border:2px solid #F0C5BB;background:#FDF6F4;}
+  .danger-card .dz-title{font-weight:700;color:var(--red);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .danger-card p{font-size:.88rem;color:#8A6358;line-height:1.45;margin-bottom:12px;}
+  .btn-danger{width:100%;padding:14px;background:var(--red);color:#fff;font-weight:700;font-size:1rem;}
+
+  /* potvrzovací modal */
+  .overlay{position:fixed;inset:0;background:rgba(36,22,7,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:24px;z-index:100;}
+  .overlay.show{display:flex;}
+  .modal{background:#fff;border:3px solid var(--red);border-radius:var(--r-lg);padding:26px 22px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center;}
+  .modal .warn-ico{font-size:2.6rem;margin-bottom:8px;}
+  .modal h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.3rem;color:var(--red);margin-bottom:10px;}
+  .modal p{font-size:.95rem;line-height:1.5;color:var(--ink);margin-bottom:20px;}
+  .modal p strong{color:var(--red);}
+  .modal .btns{display:flex;flex-direction:column;gap:10px;}
+  .modal .confirm{padding:15px;background:var(--red);color:#fff;font-weight:700;font-size:1.02rem;}
+  .modal .cancel{padding:13px;background:#F1EDE5;color:var(--ink);font-weight:600;}
+
   .links{text-align:center;margin-top:16px;font-size:.9rem;}
   .links a{color:var(--amber-deep);font-weight:500;}
 </style>
@@ -64,6 +82,24 @@
     </div>
     <div class="hint">Aktivní piva vidí hosté v hlasování. Neaktivní zůstávají v žebříčku na TV.</div>
     <div class="links"><a href="/display" target="_blank">Otevřít žebříček (TV)</a></div>
+  </div>
+
+  <div class="card danger-card" id="dangerCard" style="display:none;">
+    <div class="dz-title">⚠️ Nebezpečná zóna</div>
+    <p>Smaže <b>všechna piva a všechny hlasy</b>. Použij jen při startu nové akce.</p>
+    <button class="btn-danger" id="resetBtn">🗑 Resetovat hlasování a piva</button>
+  </div>
+
+  <div class="overlay" id="resetOverlay">
+    <div class="modal">
+      <div class="warn-ico">⚠️</div>
+      <h2>Opravdu vše smazat?</h2>
+      <p>Smažou se <strong>všechna piva i všechny hlasy</strong> všech hostů.<br>Tohle <strong>nejde vrátit zpět</strong>.</p>
+      <div class="btns">
+        <button class="confirm" id="resetConfirm">Ano, smazat vše</button>
+        <button class="cancel" id="resetCancel">Zrušit</button>
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -122,8 +158,10 @@ async function addBeer(){
   toast('Přidáno: '+name);
 }
 
-function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';}
-function showManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';load();}
+function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
+  document.getElementById('dangerCard').style.display='none';}
+function showManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
+  document.getElementById('dangerCard').style.display='block';load();}
 
 document.getElementById('loginBtn').addEventListener('click',login);
 document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
@@ -132,6 +170,29 @@ document.getElementById('newBeer').addEventListener('keydown',e=>{if(e.key==='En
 
 // zkus rovnou načíst (pokud už je cookie z dřívějška)
 load();
+
+// --- reset s potvrzením ---
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  document.getElementById('resetOverlay').classList.add('show');
+});
+document.getElementById('resetCancel').addEventListener('click', ()=>{
+  document.getElementById('resetOverlay').classList.remove('show');
+});
+document.getElementById('resetOverlay').addEventListener('click', (e)=>{
+  if(e.target === e.currentTarget) e.currentTarget.classList.remove('show');
+});
+document.getElementById('resetConfirm').addEventListener('click', async ()=>{
+  const btn = document.getElementById('resetConfirm');
+  btn.disabled = true; btn.textContent = 'Mažu…';
+  try{
+    const res = await fetch('/api/admin/reset', {method:'POST'});
+    if(res.status === 401){ toast('Nepřihlášen'); showLogin(); }
+    else if(!res.ok){ throw new Error(); }
+    else{ toast('Vše smazáno 🧹'); load(); }
+  }catch(e){ toast('Chyba při mazání, zkus znovu'); }
+  btn.disabled = false; btn.textContent = 'Ano, smazat vše';
+  document.getElementById('resetOverlay').classList.remove('show');
+});
 </script>
 </body>
 </html>
