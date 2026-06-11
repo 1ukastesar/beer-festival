@@ -88,13 +88,14 @@
     <div class="dz-title">⚠️ Nebezpečná zóna</div>
     <p>Smaže <b>všechna piva a všechny hlasy</b>. Použij jen při startu nové akce.</p>
     <button class="btn-danger" id="resetBtn">🗑 Resetovat hlasování a piva</button>
+    <button class="btn-danger" id="votersBtn" style="margin-top:10px;">👤 Smazat všechny uživatele</button>
   </div>
 
   <div class="overlay" id="resetOverlay">
     <div class="modal">
       <div class="warn-ico">⚠️</div>
-      <h2>Opravdu vše smazat?</h2>
-      <p>Smažou se <strong>všechna piva i všechny hlasy</strong> všech hostů.<br>Tohle <strong>nejde vrátit zpět</strong>.</p>
+      <h2 id="modalTitle">Opravdu vše smazat?</h2>
+      <p id="modalText">Smažou se <strong>všechna piva i všechny hlasy</strong> všech hostů.<br>Tohle <strong>nejde vrátit zpět</strong>.</p>
       <div class="btns">
         <button class="confirm" id="resetConfirm">Ano, smazat vše</button>
         <button class="cancel" id="resetCancel">Zrušit</button>
@@ -171,10 +172,23 @@ document.getElementById('newBeer').addEventListener('keydown',e=>{if(e.key==='En
 // zkus rovnou načíst (pokud už je cookie z dřívějška)
 load();
 
-// --- reset s potvrzením ---
-document.getElementById('resetBtn').addEventListener('click', ()=>{
+// --- reset s potvrzením (parametrizovaný modal) ---
+let pendingScope = 'data';
+function openResetModal(scope){
+  pendingScope = scope;
+  const title = document.getElementById('modalTitle');
+  const text = document.getElementById('modalText');
+  if(scope === 'voters'){
+    title.textContent = 'Smazat všechny uživatele?';
+    text.innerHTML = 'Smažou se <strong>všechna přihlašovací jména hostů</strong>. Hlasy a žebříček zůstanou.<br>Hosté se budou muset přihlásit znovu. <strong>Nejde vrátit zpět</strong>.';
+  } else {
+    title.textContent = 'Opravdu vše smazat?';
+    text.innerHTML = 'Smažou se <strong>všechna piva i všechny hlasy</strong> všech hostů.<br>Tohle <strong>nejde vrátit zpět</strong>.';
+  }
   document.getElementById('resetOverlay').classList.add('show');
-});
+}
+document.getElementById('resetBtn').addEventListener('click', ()=>openResetModal('data'));
+document.getElementById('votersBtn').addEventListener('click', ()=>openResetModal('voters'));
 document.getElementById('resetCancel').addEventListener('click', ()=>{
   document.getElementById('resetOverlay').classList.remove('show');
 });
@@ -185,10 +199,10 @@ document.getElementById('resetConfirm').addEventListener('click', async ()=>{
   const btn = document.getElementById('resetConfirm');
   btn.disabled = true; btn.textContent = 'Mažu…';
   try{
-    const res = await fetch('/api/admin/reset', {method:'POST'});
+    const res = await fetch('/api/admin/reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:pendingScope})});
     if(res.status === 401){ toast('Nepřihlášen'); showLogin(); }
     else if(!res.ok){ throw new Error(); }
-    else{ toast('Vše smazáno 🧹'); load(); }
+    else{ toast(pendingScope==='voters' ? 'Uživatelé smazáni 🧹' : 'Vše smazáno 🧹'); load(); }
   }catch(e){ toast('Chyba při mazání, zkus znovu'); }
   btn.disabled = false; btn.textContent = 'Ano, smazat vše';
   document.getElementById('resetOverlay').classList.remove('show');
