@@ -39,6 +39,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'jméno musí mít 2–32 znaků' });
   }
 
+  // Ochrana proti zaplavení DB (free tier). Strop voterů na rozumné maximum
+  // pro pivní akci. Existující voter (login) se nepočítá – kontrolujeme jen
+  // při zakládání nového. Kontrola běží jen když jméno v DB ještě není.
+  const VOTER_CAP = 2000;
+  const existing = (await sql`
+    SELECT 1 FROM voters WHERE voter = ${voter} LIMIT 1
+  `) as { '?column?': number }[];
+  if (existing.length === 0) {
+    const cnt = (await sql`SELECT COUNT(*)::int AS n FROM voters`) as { n: number }[];
+    if ((cnt[0]?.n ?? 0) >= VOTER_CAP) {
+      return res.status(429).json({ error: 'kapacita hlasujících je plná' });
+    }
+  }
+
   // INSERT ... ON CONFLICT DO NOTHING + zjištění, jestli se opravdu vložilo.
   // Vracíme různé status kódy podle toho.
   const result = (await sql`

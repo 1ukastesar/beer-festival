@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { createHash } from 'node:crypto';
 
 // Neon serverless klient. Connection string z env DATABASE_URL
 // (Vercel ho nastaví automaticky po propojení s Neon, nebo ho zadáš ručně).
@@ -7,6 +8,13 @@ export const sql = neon(process.env.DATABASE_URL!);
 // Heslo k adminu z env. Změň v nastavení projektu na Vercelu!
 export function adminPassword(): string {
   return process.env.ADMIN_PASSWORD || 'pivo-admin';
+}
+
+// Token do cookie = SHA-256(heslo + sůl). Do cookie tak nedáváme heslo
+// v plaintextu; kdo zahlédne cookie, nezíská heslo samotné. Sůl odděluje
+// tento token od prostého hashe hesla.
+export function adminToken(): string {
+  return createHash('sha256').update('pivo|' + adminPassword()).digest('hex');
 }
 
 // Lazy inicializace schématu – zavolá se na začátku každé funkce.
@@ -50,7 +58,14 @@ export async function ensureSchema(): Promise<void> {
 export function isAdmin(req: { headers: { cookie?: string } }): boolean {
   const cookie = req.headers.cookie || '';
   const m = cookie.match(/(?:^|;\s*)pivo_admin=([^;]+)/);
-  return !!m && decodeURIComponent(m[1]) === adminPassword();
+  if (!m) return false;
+  const got = decodeURIComponent(m[1]);
+  const want = adminToken();
+  // konstantní čas – ať se token nedá uhádnout po znacích podle latence
+  if (got.length !== want.length) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i++) diff |= got.charCodeAt(i) ^ want.charCodeAt(i);
+  return diff === 0;
 }
 
 // Pomocník: výsledky (průměr + počet) pro všechna piva s aspoň jedním hlasem,
