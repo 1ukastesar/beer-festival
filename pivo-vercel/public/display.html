@@ -39,20 +39,35 @@
   .empty{text-align:center;font-size:1.6vw;opacity:.5;font-style:italic;margin-top:6vh;}
   .foot{text-align:center;font-size:1vw;opacity:.4;font-style:italic;margin-top:1vh;}
   .info{min-width:0;}
+  /* indikátor stránek (jen když se piva stránkují) */
+  .pageind{display:flex;justify-content:center;align-items:center;gap:1vw;height:1.6vh;margin-top:.6vh;}
+  .pageind .dot{width:1.1vh;height:1.1vh;border-radius:50%;background:rgba(253,246,227,.22);transition:all .4s;}
+  .pageind .dot.on{background:var(--gold);box-shadow:0 0 10px rgba(241,196,15,.6);transform:scale(1.2);}
 </style>
 </head>
 <body>
   <h1>🍺 Žebříček piv 🍺</h1>
   <div class="sub">Hodnocení v reálném čase</div>
   <div class="board" id="board"></div>
+  <div class="pageind" id="pageind"></div>
   <div class="foot">Naskenuj QR na stole a hlasuj • aktualizuje se živě</div>
 
 <script>
 const medals=['🥇','🥈','🥉'];
-let lastTop=null;
 
-// Rozvrhne řádky: do 8 piv jeden sloupec, víc → dva sloupce.
-// Velikost písma škáluje podle počtu řádků na sloupec, ať se vše vejde.
+// --- konfigurace stránkování ---
+const PER_PAGE  = 12;      // víc piv než tohle → žebříček se rozdělí na stránky
+const PAGE_MS   = 12000;   // jak často se stránka automaticky přepne (ms)
+
+let data=[];               // poslední seřazená data ze serveru
+let page=0;                // aktuální stránka (0-based)
+let lastTop=null;
+let pageTimer=null;
+
+function pageCount(){ return Math.max(1, Math.ceil(data.length/PER_PAGE)); }
+
+// Rozvrhne řádky pro n piv na stránce: do 8 jeden sloupec, víc → dva sloupce.
+// Velikost písma škáluje podle počtu řádků na sloupec, ať se vše vejde velké.
 function layout(n){
   const cols = n>8 ? 2 : 1;
   const perCol = Math.ceil(n/cols);
@@ -67,21 +82,36 @@ function layout(n){
 
 function hlasu(n){if(n===1)return 'hlas';if(n>=2&&n<=4)return 'hlasy';return 'hlasů';}
 
-function render(data){
-  data.sort((a,b)=>b.avg-a.avg);
+// Vykreslí tečky indikátoru stránek (skryté, když je jen jedna stránka).
+function renderDots(){
+  const ind=document.getElementById('pageind');
+  const pc=pageCount();
+  if(pc<=1){ ind.innerHTML=''; return; }
+  let html='';
+  for(let i=0;i<pc;i++) html+='<div class="dot'+(i===page?' on':'')+'"></div>';
+  ind.innerHTML=html;
+}
+
+// Vykreslí aktuální stránku. Pořadí (rank) je globální napříč stránkami,
+// takže druhá stránka pokračuje 13., 14., …
+function drawPage(){
   const board=document.getElementById('board');
   if(data.every(d=>d.count===0)){
     board.style.display='block';
     board.innerHTML='<div class="empty">Zatím žádné hlasy — buď první! 🍺</div>';
+    document.getElementById('pageind').innerHTML='';
     return;
   }
+  const start=page*PER_PAGE;
+  const slice=data.slice(start,start+PER_PAGE);
   board.style.display='grid';
-  layout(data.length);
+  layout(slice.length);
   board.innerHTML='';
-  data.forEach((d,i)=>{
+  slice.forEach((d,i)=>{
+    const gi=start+i;                       // globální index (pořadí)
     const row=document.createElement('div');
-    row.className='row'+(i===0&&d.count>0?' top':'');
-    const rank=(i<3&&d.count>0)?medals[i]:(i+1);
+    row.className='row'+(gi===0&&d.count>0?' top':'');
+    const rank=(gi<3&&d.count>0)?medals[gi]:(gi+1);
     const pct=d.count>0?(d.avg/10*100):0;
     const avg=d.count>0?d.avg.toFixed(1):'–';
     row.style.fontSize='var(--rowfs)';
@@ -92,8 +122,30 @@ function render(data){
       '<div class="score">'+avg+'<div class="cnt">'+d.count+' '+hlasu(d.count)+'</div></div>';
     board.appendChild(row);
   });
+  renderDots();
+}
+
+// Spustí/zastaví automatické přepínání stránek podle počtu stránek.
+function syncRotation(){
+  if(pageCount()>1){
+    if(!pageTimer) pageTimer=setInterval(()=>{
+      page=(page+1)%pageCount();
+      drawPage();
+    }, PAGE_MS);
+  }else if(pageTimer){
+    clearInterval(pageTimer); pageTimer=null;
+  }
+}
+
+function render(fresh){
+  fresh.sort((a,b)=>b.avg-a.avg);
+  data=fresh;
+  if(page>=pageCount()) page=0;      // po ubytí piv nepřetéct mimo rozsah
+  drawPage();
+  syncRotation();
+  const board=document.getElementById('board');
   const top=data[0]&&data[0].count>0?data[0].beer:null;
-  if(top&&top!==lastTop&&lastTop!==null){ board.firstChild.classList.add('pulse'); }
+  if(top&&top!==lastTop&&lastTop!==null&&page===0&&board.firstChild){ board.firstChild.classList.add('pulse'); }
   lastTop=top;
 }
 
