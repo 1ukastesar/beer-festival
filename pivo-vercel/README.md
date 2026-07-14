@@ -28,6 +28,7 @@ Live beer rating app. Guests rate beers from their phones, results show on a TV 
 | `POST /api/vote`              | Submit/overwrite a voter's ratings           |
 | `GET /api/vote?voter=<id>`    | Voter's previous ratings (for editing)       |
 | `POST /api/admin/login`       | Admin login                                  |
+| `POST /api/admin/password`    | Change admin password (stored in DB)         |
 | `GET/POST /api/admin/beers`   | List / add / (de)activate beers              |
 
 ## Deployment
@@ -47,8 +48,12 @@ In the Vercel project: **Settings → Environment Variables**:
 
 ```
 DATABASE_URL    = postgresql://...    (from Neon)
-ADMIN_PASSWORD  = your-password       (change from default!)
+ADMIN_PASSWORD  = your-password       (initial password; change from default!)
 ```
+
+> `ADMIN_PASSWORD` is only the **initial** password. Once you change it from the
+> admin page, the new password is stored (hashed) in the database and takes
+> precedence over the env var.
 
 > If you connect Neon via the Vercel integration (**Storage → Neon**), `DATABASE_URL` is set automatically.
 

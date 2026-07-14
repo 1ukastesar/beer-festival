@@ -84,6 +84,14 @@
     <div class="links"><a href="/display" target="_blank">Otevřít žebříček (TV)</a></div>
   </div>
 
+  <div class="card" id="passCard" style="display:none;">
+    <div style="margin-bottom:12px;font-weight:600;">Změna hesla</div>
+    <input type="password" id="curPass" placeholder="Současné heslo" autocomplete="current-password">
+    <input type="password" id="newPass" placeholder="Nové heslo (min. 4 znaky)" autocomplete="new-password" style="margin-top:10px;">
+    <input type="password" id="newPass2" placeholder="Nové heslo znovu" autocomplete="new-password" style="margin-top:10px;">
+    <button class="btn-primary" style="width:100%;margin-top:12px;" id="passBtn">Změnit heslo</button>
+  </div>
+
   <div class="card danger-card" id="dangerCard" style="display:none;">
     <div class="dz-title">⚠️ Nebezpečná zóna</div>
     <p>Smaže <b>všechna piva a všechny hlasy</b>. Použij jen při startu nové akce.</p>
@@ -160,14 +168,38 @@ async function addBeer(){
 }
 
 function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
-  document.getElementById('dangerCard').style.display='none';}
+  document.getElementById('passCard').style.display='none';document.getElementById('dangerCard').style.display='none';}
 function showManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
-  document.getElementById('dangerCard').style.display='block';load();}
+  document.getElementById('passCard').style.display='block';document.getElementById('dangerCard').style.display='block';load();}
+
+async function changePassword(){
+  const cur=document.getElementById('curPass').value;
+  const next=document.getElementById('newPass').value;
+  const next2=document.getElementById('newPass2').value;
+  if(!cur||!next){ toast('Vyplň obě hesla'); return; }
+  if(next.length<4){ toast('Nové heslo min. 4 znaky'); return; }
+  if(next!==next2){ toast('Nová hesla se neshodují'); return; }
+  const btn=document.getElementById('passBtn'); btn.disabled=true;
+  try{
+    const res=await fetch('/api/admin/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current:cur,next})});
+    if(res.status===401){ const j=await res.json().catch(()=>({})); toast(j.error||'Nepřihlášen'); }
+    else if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error||''); }
+    else{
+      toast('Heslo změněno 🔒');
+      document.getElementById('curPass').value='';
+      document.getElementById('newPass').value='';
+      document.getElementById('newPass2').value='';
+    }
+  }catch(e){ toast(e.message?('Chyba: '+e.message):'Chyba při změně hesla'); }
+  btn.disabled=false;
+}
 
 document.getElementById('loginBtn').addEventListener('click',login);
 document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
 document.getElementById('addBtn').addEventListener('click',addBeer);
 document.getElementById('newBeer').addEventListener('keydown',e=>{if(e.key==='Enter')addBeer();});
+document.getElementById('passBtn').addEventListener('click',changePassword);
+document.getElementById('newPass2').addEventListener('keydown',e=>{if(e.key==='Enter')changePassword();});
 
 // zkus rovnou načíst (pokud už je cookie z dřívějška)
 load();

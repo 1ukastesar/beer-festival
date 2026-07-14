@@ -9,7 +9,7 @@ import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 
-  if (!isAdmin(req)) {
+  if (!(await isAdmin(req))) {
     return res.status(401).json({ error: 'nepřihlášen' });
   }
   if (req.method !== 'POST') {
