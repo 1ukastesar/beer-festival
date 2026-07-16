@@ -24,20 +24,21 @@
     text-shadow:0 3px 0 var(--amber-deep),0 6px 18px rgba(0,0,0,.6);margin-bottom:.1em;letter-spacing:1px;}
   .sub{text-align:center;font-style:italic;font-size:1.2vw;opacity:.65;margin-bottom:1.5vh;}
   /* board je grid; počet sloupců se nastaví v JS podle počtu piv.
-     min-height:0 nechá board zmenšit se ve flex sloupci, aby dolní
-     navigace (tečky + patička) zůstala vidět i v malém okně. */
-  .board{flex:1;min-height:0;display:grid;gap:1vh 1.5vw;align-content:center;grid-auto-flow:column;}
+     min-height:0 nechá board zmenšit se ve flex sloupci a overflow:hidden
+     zajistí, že řádky nikdy nepřetečou přes hlavičku/patičku – dolní
+     navigace tak zůstane vidět i v malém okně. */
+  .board{flex:1;min-height:0;overflow:hidden;display:grid;gap:.8vh 1.5vw;align-content:center;grid-auto-flow:column;}
   .row{
     display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.8vw;
     background:rgba(253,246,227,.06);border:1.5px solid rgba(253,246,227,.13);
-    border-radius:12px;padding:1vh 1.2vw;transition:all .5s cubic-bezier(.2,.8,.2,1);
+    border-radius:12px;padding:.3em 1.2vw;overflow:hidden;transition:all .5s cubic-bezier(.2,.8,.2,1);
   }
   .row.top{background:linear-gradient(90deg,rgba(241,196,15,.20),rgba(241,196,15,.04));
     border-color:var(--gold);box-shadow:0 0 24px rgba(241,196,15,.2);}
   .rank{font-family:'Alfa Slab One',cursive;text-align:center;color:var(--amber);min-width:1.6em;}
   .row.top .rank{color:var(--gold);}
-  .name{font-family:'Alfa Slab One',cursive;color:var(--foam);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .barwrap{height:.7vh;background:rgba(0,0,0,.35);border-radius:20px;overflow:hidden;margin-top:.5vh;}
+  .name{font-family:'Alfa Slab One',cursive;color:var(--foam);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.15;}
+  .barwrap{height:.28em;background:rgba(0,0,0,.35);border-radius:20px;overflow:hidden;margin-top:.28em;}
   .bar{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:20px;transition:width .8s ease;}
   .score{text-align:right;font-family:'Alfa Slab One',cursive;color:var(--foam);}
   .cnt{font-size:.65em;opacity:.55;font-style:italic;font-family:'Fraunces',serif;font-weight:400;}
@@ -80,13 +81,18 @@ function layout(n){
   const perCol = Math.ceil(n/cols);
   const board=document.getElementById('board');
   board.style.gridTemplateColumns = cols===2 ? '1fr 1fr' : '1fr';
-  board.style.gridTemplateRows = 'repeat('+perCol+',1fr)';
-  // Font odvozený z výšky jednoho řádku, se stropem podle šířky (~2.6vw),
-  // ať na širokém a nízkém okně písmo nepřeteče a nezakryje navigaci.
+  // minmax(0,1fr) → stopy se smí zmenšit pod obsah, takže se řádky nikdy
+  // nenafouknou přes board (a přes hlavičku/patičku).
+  board.style.gridTemplateRows = 'repeat('+perCol+',minmax(0,1fr))';
+  // Font odvozený ze SKUTEČNÉ výšky na jeden řádek (po odečtení mezer).
+  // Řádek zabírá zhruba 2.6× velikost fontu (název + proužek + odsazení),
+  // se stropem podle šířky, ať na širokém a nízkém okně nic nepřeteče.
+  const gap = window.innerHeight * 0.008;              // ~ .8vh row-gap
   const avail = board.clientHeight;                    // px k dispozici na řádky
-  const byH = avail > 0 ? (avail / perCol) * 0.4 : Infinity;
+  const perRow = avail > 0 ? (avail - gap*(perCol-1)) / perCol : Infinity;
+  const byH = perRow / 2.6;
   const byW = window.innerWidth * 0.026;               // strop ~2.6vw
-  const fs = Math.max(11, Math.min(byW, byH));          // px
+  const fs = Math.max(10, Math.min(byW, byH));          // px
   document.documentElement.style.setProperty('--rowfs', fs + 'px');
   return {cols,perCol};
 }
