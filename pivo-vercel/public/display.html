@@ -11,8 +11,11 @@
     --gold:#f1c40f;--green:#5d8a4a;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  html,body{height:100%;overflow:hidden;}
+  html{height:100%;}
+  /* dvh = dynamická výška viewportu → počítá se se skutečným oknem
+     (i s lištami prohlížeče), ne s celoobrazovkovou výškou. */
   body{
+    height:100vh;height:100dvh;overflow:hidden;
     font-family:'Fraunces',Georgia,serif;
     background:radial-gradient(ellipse at 30% 20%,#3a2810 0%,#1c1308 70%,#0f0a04 100%);
     color:var(--foam);display:flex;flex-direction:column;padding:2vh 2.5vw;
@@ -20,8 +23,10 @@
   h1{font-family:'Alfa Slab One',cursive;font-size:3.6vw;text-align:center;color:var(--gold);
     text-shadow:0 3px 0 var(--amber-deep),0 6px 18px rgba(0,0,0,.6);margin-bottom:.1em;letter-spacing:1px;}
   .sub{text-align:center;font-style:italic;font-size:1.2vw;opacity:.65;margin-bottom:1.5vh;}
-  /* board je grid; počet sloupců se nastaví v JS podle počtu piv */
-  .board{flex:1;display:grid;gap:1vh 1.5vw;align-content:center;grid-auto-flow:column;}
+  /* board je grid; počet sloupců se nastaví v JS podle počtu piv.
+     min-height:0 nechá board zmenšit se ve flex sloupci, aby dolní
+     navigace (tečky + patička) zůstala vidět i v malém okně. */
+  .board{flex:1;min-height:0;display:grid;gap:1vh 1.5vw;align-content:center;grid-auto-flow:column;}
   .row{
     display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.8vw;
     background:rgba(253,246,227,.06);border:1.5px solid rgba(253,246,227,.13);
@@ -68,16 +73,21 @@ let pageTimer=null;
 function pageCount(){ return Math.max(1, Math.ceil(data.length/PER_PAGE)); }
 
 // Rozvrhne řádky pro n piv na stránce: do 8 jeden sloupec, víc → dva sloupce.
-// Velikost písma škáluje podle počtu řádků na sloupec, ať se vše vejde velké.
+// Velikost písma řádku škáluje podle SKUTEČNĚ dostupné výšky boardu (ne jen
+// šířky), ať se vše vejde i v okně, které není přes celou obrazovku.
 function layout(n){
   const cols = n>8 ? 2 : 1;
   const perCol = Math.ceil(n/cols);
   const board=document.getElementById('board');
   board.style.gridTemplateColumns = cols===2 ? '1fr 1fr' : '1fr';
   board.style.gridTemplateRows = 'repeat('+perCol+',1fr)';
-  // dynamická velikost fontu řádku podle počtu na sloupec
-  const fs = Math.max(1.1, Math.min(2.6, 22/perCol)); // vw
-  document.documentElement.style.setProperty('--rowfs', fs+'vw');
+  // Font odvozený z výšky jednoho řádku, se stropem podle šířky (~2.6vw),
+  // ať na širokém a nízkém okně písmo nepřeteče a nezakryje navigaci.
+  const avail = board.clientHeight;                    // px k dispozici na řádky
+  const byH = avail > 0 ? (avail / perCol) * 0.4 : Infinity;
+  const byW = window.innerWidth * 0.026;               // strop ~2.6vw
+  const fs = Math.max(11, Math.min(byW, byH));          // px
+  document.documentElement.style.setProperty('--rowfs', fs + 'px');
   return {cols,perCol};
 }
 
@@ -177,6 +187,9 @@ poll();
 // Polling po 30 sekundách – pivní žebříček nepotřebuje sekundovou aktualizaci
 // a šetří to Vercel function invocations (Hobby plán má limit).
 setInterval(poll, 30000);
+
+// Font je teď v px podle výšky → po změně velikosti okna překreslit.
+window.addEventListener('resize', ()=>{ if(data.length) drawPage(); });
 
 // Ruční listování šipkami na klávesnici (← → i ↑ ↓). Ručně → reset časovače.
 document.addEventListener('keydown', e=>{
