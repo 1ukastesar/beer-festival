@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pivní slavnosti – Správa piv</title>
+<title>Pivní slavnosti – Administrace</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap');
   :root{
@@ -41,6 +41,8 @@
   .mini.del{background:#FBEAE5;}
   .addrow{display:flex;gap:8px;margin-top:6px;}
   .addrow input{flex:1;min-width:0;}
+  .io-row{display:flex;gap:8px;margin-top:10px;}
+  .btn-sec{flex:1;padding:11px 8px;background:#F1EDE5;color:var(--ink);font-weight:600;font-size:.9rem;border-radius:var(--r-md);white-space:nowrap;}
   .hint{text-align:center;color:var(--muted);font-size:.85rem;line-height:1.5;margin-top:14px;}
   .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#FFF6E9;padding:12px 20px;border-radius:999px;font-weight:600;font-size:.95rem;box-shadow:var(--shadow-pop);opacity:0;transition:all .25s;z-index:50;pointer-events:none;}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
@@ -67,7 +69,7 @@
 </style>
 </head>
 <body>
-  <div class="head"><h1>🍺 Správa piv</h1><p>Přidávej a přepínej, co je na čepu</p></div>
+  <div class="head"><h1>🍺 Administrace</h1><p>Piva, hlasující a nastavení akce</p></div>
 
   <div class="card" id="loginCard">
     <div style="margin-bottom:10px;font-weight:600;">Přihlášení</div>
@@ -82,7 +84,12 @@
       <input type="text" id="newBeer" placeholder="Název nového piva" autocomplete="off">
       <button class="btn-primary" id="addBtn">Přidat</button>
     </div>
-    <div class="hint">Aktivní piva vidí hosté v hlasování. Neaktivní zůstávají v žebříčku na TV.</div>
+    <div class="io-row">
+      <button class="btn-sec" id="exportBtn">⬇️ Export seznamu</button>
+      <button class="btn-sec" id="importBtn">⬆️ Import seznamu</button>
+      <input type="file" id="importFile" accept=".txt,text/plain" style="display:none">
+    </div>
+    <div class="hint">Aktivní piva vidí hosté v hlasování. Neaktivní zůstávají v žebříčku na TV. Import/export je prostý textový soubor, jedno pivo na řádek.</div>
     <div class="links"><a href="/display" target="_blank">Otevřít žebříček (TV)</a></div>
   </div>
 
@@ -148,7 +155,9 @@ async function load(){
   }catch(e){ showLogin(); }
 }
 
+let beersData=[];   // last loaded beer list, used by export
 function render(beers){
+  beersData=beers||[];
   const list=document.getElementById('list');
   if(beers.length===0){ list.innerHTML='<div style="font-style:italic;opacity:.6;padding:8px;">Zatím žádná piva. Přidej první níže.</div>'; return; }
   list.innerHTML='';
@@ -203,6 +212,35 @@ async function renameBeer(name){
     toast('Přejmenováno');
     load();
   }catch(e){ toast(e.message?('Chyba: '+e.message):'Chyba při přejmenování'); }
+}
+
+// Export the beer list as a plain UTF-8 text file, one beer name per line.
+function exportBeers(){
+  if(!beersData.length){ toast('Žádná piva k exportu'); return; }
+  const text=beersData.map(b=>b.name).join('\n')+'\n';
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='piva.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Import beers from a chosen text file (one name per line, read as UTF-8).
+async function importBeers(file){
+  try{
+    const text=await file.text();                       // decoded as UTF-8
+    const names=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    if(!names.length){ toast('Soubor je prázdný'); return; }
+    const before=beersData.length;
+    const res=await fetch('/api/admin/beers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'import',names})});
+    if(res.status===401){ showLogin(); return; }
+    if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error||''); }
+    const beers=await res.json();
+    render(beers||[]);
+    const added=(beers?beers.length:0)-before;
+    toast(added>0 ? ('Přidáno '+added+' piv') : 'Seznam aktualizován');
+  }catch(e){ toast(e.message?('Chyba: '+e.message):'Chyba při importu'); }
 }
 
 async function loadVoters(){
@@ -285,6 +323,13 @@ document.getElementById('loginBtn').addEventListener('click',login);
 document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
 document.getElementById('addBtn').addEventListener('click',addBeer);
 document.getElementById('newBeer').addEventListener('keydown',e=>{if(e.key==='Enter')addBeer();});
+document.getElementById('exportBtn').addEventListener('click',exportBeers);
+document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change',e=>{
+  const file=e.target.files[0];
+  e.target.value='';                 // reset so the same file can be re-imported
+  if(file) importBeers(file);
+});
 document.getElementById('passBtn').addEventListener('click',changePassword);
 document.getElementById('newPass2').addEventListener('keydown',e=>{if(e.key==='Enter')changePassword();});
 

@@ -2,8 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
 
 // GET  /api/admin/beers -> all beers with their state (active) - admin only
-// POST /api/admin/beers body: {"action":"add|activate|deactivate|delete|rename","name":"...","newName":"..."}
-//   rename uses newName; delete also removes that beer's votes.
+// POST /api/admin/beers body: {"action":"add|activate|deactivate|delete|rename|import","name":"...","newName":"...","names":[...]}
+//   rename uses newName; delete also removes that beer's votes; import takes a
+//   names array (one beer per line from an uploaded file), additive.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 
@@ -21,6 +22,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST') {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const action: string = body?.action || '';
+
+    // Import a list of beer names (one per line in the uploaded file). This is
+    // additive: new names are inserted as active, names that already exist are
+    // just re-activated. Handled before the single-name validation below.
+    if (action === 'import') {
+      const raw: unknown[] = Array.isArray(body?.names) ? body.names : [];
+      const names = [
+        ...new Set(
+          raw.map((n) => String(n).trim()).filter((n) => n.length > 0 && n.length <= 80)
+        ),
+      ];
+      if (names.length === 0) {
+        return res.status(400).json({ error: 'soubor neobsahuje zadna platna jmena' });
+      }
+      const maxRow = (await sql`
+        SELECT COALESCE(MAX(sort), 0) AS max FROM beers
+      `) as { max: number | string }[];
+      const baseSort = Number(maxRow[0]?.max ?? 0);
+      const sorts = names.map((_, i) => baseSort + 1 + i);
+      const now = Date.now();
+      await sql`
+        INSERT INTO beers (name, active, sort, created)
+        SELECT n, true, s, ${now}
+        FROM unnest(${names}::text[], ${sorts}::int[]) AS t(n, s)
+        ON CONFLICT (name) DO UPDATE SET active = true
+      `;
+      const rows = (await sql`
+        SELECT name, active FROM beers ORDER BY sort, name
+      `) as { name: string; active: boolean }[];
+      return res.json(rows);
+    }
+
     const name: string = (body?.name || '').trim();
 
     if (!name || name.length > 80) {
