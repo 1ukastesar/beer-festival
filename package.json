@@ -1,5 +1,5 @@
 {
-  "name": "pivo-vercel",
+  "name": "beer-festival",
   "version": "1.0.0",
   "description": "Pivní slavnosti – live hlasování piv (Vercel + Neon Postgres)",
   "private": true,
