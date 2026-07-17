@@ -54,10 +54,10 @@
 </head>
 <body>
   <h1>🍺 Žebříček piv 🍺</h1>
-  <div class="sub">Hodnocení v reálném čase</div>
+  <div class="sub">Jak si podle Vás vedou jednotlivá piva</div>
   <div class="board" id="board"></div>
   <div class="pageind" id="pageind"></div>
-  <div class="foot">Naskenuj QR na stole a hlasuj • aktualizuje se živě</div>
+  <div class="foot">Hlasuj na sk-sivice.cz • Aktualizace za <span id="refreshCounter">10</span>s</div>
 
 <script>
 const medals=['🥇','🥈','🥉'];
@@ -189,10 +189,22 @@ async function poll(){
     if(res.ok) render(await res.json());
   }catch(err){ console.error(err); }
 }
+
+// Refresh every POLL_S seconds, driven by a 1 s countdown so the footer can
+// show "Aktualizace za <X>s". When the countdown hits 0 we poll and reset it.
+const POLL_S = 10;
+let countdown = POLL_S;
+function showCountdown(){
+  const el = document.getElementById('refreshCounter');
+  if(el) el.textContent = countdown;
+}
 poll();
-// Poll every 30 seconds - a beer ranking does not need per-second updates,
-// and this saves Vercel function invocations (the Hobby plan has a limit).
-setInterval(poll, 30000);
+showCountdown();
+setInterval(()=>{
+  countdown--;
+  if(countdown <= 0){ poll(); countdown = POLL_S; }
+  showCountdown();
+}, 1000);
 
 // The font is now in px based on height -> redraw after a window resize.
 window.addEventListener('resize', ()=>{ if(data.length) drawPage(); });
