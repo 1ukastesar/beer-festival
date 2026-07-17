@@ -66,12 +66,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // score with what the guest entered earlier (the frontend score is only
   // informational there; the server will not let the score be changed once
   // the beer is off tap).
+  //
+  // A beer can disappear or go off tap between loading the form and submitting
+  // it (admin deletes/deactivates it). We do not reject the whole batch for
+  // that - we skip such beers and report them, so the rest of the votes still
+  // save. Only a genuinely malformed score on a votable (active) beer is a
+  // hard error.
   type CleanVote = { beer: string; score: number; note: string };
   const clean: CleanVote[] = [];
+  const skipped: string[] = [];
 
   for (const v of votes) {
+    // Unknown beer (deleted since the form loaded) -> skip.
     if (!beerState.has(v.beer)) {
-      return res.status(400).json({ error: `neznámé pivo: ${v.beer}` });
+      skipped.push(v.beer);
+      continue;
     }
     const note = (v.note ?? '').toString().slice(0, 100);
     const isActive = beerState.get(v.beer);
@@ -83,12 +92,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       clean.push({ beer: v.beer, score: v.score, note });
     } else {
-      // inactive -> must have a previous vote, otherwise voting is not allowed
+      // inactive -> keep only if the guest had rated it before; otherwise the
+      // beer went off tap before they ever scored it, so skip it.
       const prev = prevScore.get(v.beer);
       if (prev === undefined) {
-        return res.status(400).json({
-          error: `pivo ${v.beer} už není na čepu a předtím jsi ho neohodnotil`,
-        });
+        skipped.push(v.beer);
+        continue;
       }
       // take the score from the DB, not from the request
       clean.push({ beer: v.beer, score: prev, note });
@@ -111,5 +120,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `;
   }
 
-  res.json({ ok: true });
+  res.json({ ok: true, skipped });
 }

@@ -307,7 +307,14 @@ async function submitVotes(){
       return;
     }
     if(!res.ok) throw new Error(await res.text());
-    toast('Odesláno, díky! 🍻');
+    const j = await res.json().catch(()=>({}));
+    // some beers may have gone off tap / been removed between load and submit;
+    // the server skips those and saves the rest.
+    if(j.skipped && j.skipped.length){
+      toast('Některá piva už nejsou na čepu, přeskočena');
+    } else {
+      toast('Odesláno, díky! 🍻');
+    }
     // reload my votes and show the ranking
     await loadMyVotes();
     showBoard();
