@@ -86,6 +86,12 @@
     <div class="links"><a href="/display" target="_blank">Otevřít žebříček (TV)</a></div>
   </div>
 
+  <div class="card" id="votersCard" style="display:none;">
+    <div style="margin-bottom:12px;font-weight:600;">Hlasující</div>
+    <div id="voterList"></div>
+    <div class="hint">Přejmenuj překlep ve jméně, nebo vyhoď hlasujícího i s jeho hlasy.</div>
+  </div>
+
   <div class="card" id="passCard" style="display:none;">
     <div style="margin-bottom:12px;font-weight:600;">Změna hesla</div>
     <input type="password" id="curPass" placeholder="Současné heslo" autocomplete="current-password">
@@ -96,8 +102,9 @@
 
   <div class="card danger-card" id="dangerCard" style="display:none;">
     <div class="dz-title">⚠️ Nebezpečná zóna</div>
-    <p>Smaže <b>všechna piva a všechny hlasy</b>. Použij jen při startu nové akce.</p>
+    <p><b>Nevratné akce.</b> Používej opatrně, hlavně při startu nové akce.</p>
     <button class="btn-danger" id="resetBtn">🗑 Resetovat hlasování a piva</button>
+    <button class="btn-danger" id="usersBtn" style="margin-top:10px;">🧹 Smazat uživatele i hlasy</button>
     <button class="btn-danger" id="votersBtn" style="margin-top:10px;">👤 Smazat všechny uživatele</button>
   </div>
 
@@ -118,6 +125,7 @@
 <script>
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+function hlasu(n){if(n===1)return 'hlas';if(n>=2&&n<=4)return 'hlasy';return 'hlasů';}
 
 async function login(){
   const p=document.getElementById('pass').value;
@@ -194,10 +202,57 @@ async function renameBeer(name){
   }catch(e){ toast(e.message?('Chyba: '+e.message):'Chyba při přejmenování'); }
 }
 
+async function loadVoters(){
+  try{
+    const res=await fetch('/api/admin/voters');
+    if(res.status===401){ showLogin(); return; }
+    renderVoters(await res.json()||[]);
+  }catch(e){}
+}
+
+function renderVoters(voters){
+  const list=document.getElementById('voterList');
+  if(!voters.length){ list.innerHTML='<div style="font-style:italic;opacity:.6;padding:8px;">Zatím žádní hlasující.</div>'; return; }
+  list.innerHTML='';
+  voters.forEach(v=>{
+    const enc=encodeURIComponent(v.voter);
+    const row=document.createElement('div');
+    row.className='row';
+    row.innerHTML='<span class="name">👤 '+escapeHtml(v.voter)+'</span>'+
+      '<span class="badge offb">'+v.votes+'&nbsp;'+hlasu(v.votes)+'</span>'+
+      '<button class="mini ren" data-name="'+enc+'" title="Přejmenovat" aria-label="Přejmenovat">✏️</button>'+
+      '<button class="mini del" data-name="'+enc+'" title="Vyhodit" aria-label="Vyhodit">🥾</button>';
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.mini.ren').forEach(btn=>{
+    btn.addEventListener('click',()=>renameVoter(decodeURIComponent(btn.dataset.name)));
+  });
+  list.querySelectorAll('.mini.del').forEach(btn=>{
+    btn.addEventListener('click',()=>openKickModal(decodeURIComponent(btn.dataset.name)));
+  });
+}
+
+async function renameVoter(voter){
+  const input=prompt('Nové jméno hlasujícího:', voter);
+  if(input===null) return;              // cancelled
+  const newName=input.trim();
+  if(newName.length<2){ toast('Jméno min. 2 znaky'); return; }
+  if(newName===voter) return;           // no change
+  try{
+    const res=await fetch('/api/admin/voters',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'rename',voter,newName})});
+    if(res.status===401){ showLogin(); return; }
+    if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error||''); }
+    toast('Přejmenováno');
+    loadVoters();
+  }catch(e){ toast(e.message?('Chyba: '+e.message):'Chyba při přejmenování'); }
+}
+
 function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
+  document.getElementById('votersCard').style.display='none';
   document.getElementById('passCard').style.display='none';document.getElementById('dangerCard').style.display='none';}
 function showManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
-  document.getElementById('passCard').style.display='block';document.getElementById('dangerCard').style.display='block';load();}
+  document.getElementById('votersCard').style.display='block';
+  document.getElementById('passCard').style.display='block';document.getElementById('dangerCard').style.display='block';load();loadVoters();}
 
 async function changePassword(){
   const cur=document.getElementById('curPass').value;
@@ -231,9 +286,9 @@ document.getElementById('newPass2').addEventListener('keydown',e=>{if(e.key==='E
 // try loading right away (in case a cookie already exists from before)
 load();
 
-// --- confirmation modal (shared for reset and single-beer delete) ---
-// pending: {type:'reset', scope} or {type:'deleteBeer', name}. confirmLabel
-// is the text on the confirm button for that action.
+// --- confirmation modal (shared for reset, single-beer delete, voter kick) ---
+// pending: {type:'reset', scope} | {type:'deleteBeer', name} | {type:'kickVoter', voter}.
+// confirmLabel is the text on the confirm button for that action.
 let pending = null;
 function openConfirm(p, title, textHtml, confirmLabel){
   pending = p;
@@ -247,6 +302,10 @@ function openResetModal(scope){
     openConfirm({type:'reset', scope}, 'Smazat všechny uživatele?',
       'Smažou se <strong>všechna přihlašovací jména hostů</strong>. Hlasy a žebříček zůstanou.<br>Hosté se budou muset přihlásit znovu. <strong>Nejde vrátit zpět</strong>.',
       'Ano, smazat vše');
+  } else if(scope === 'users'){
+    openConfirm({type:'reset', scope}, 'Smazat uživatele i hlasy?',
+      'Smažou se <strong>všichni hlasující i všechny hlasy</strong>. Piva zůstanou.<br>Tohle <strong>nejde vrátit zpět</strong>.',
+      'Ano, smazat vše');
   } else {
     openConfirm({type:'reset', scope:'data'}, 'Opravdu vše smazat?',
       'Smažou se <strong>všechna piva i všechny hlasy</strong> všech hostů.<br>Tohle <strong>nejde vrátit zpět</strong>.',
@@ -258,7 +317,13 @@ function openDeleteBeerModal(name){
     'Smaže se pivo <strong>'+escapeHtml(name)+'</strong> i <strong>všechny jeho hlasy</strong>.<br>Tohle <strong>nejde vrátit zpět</strong>.',
     'Ano, smazat');
 }
+function openKickModal(voter){
+  openConfirm({type:'kickVoter', voter}, 'Vyhodit hlasujícího?',
+    'Odstraní se <strong>'+escapeHtml(voter)+'</strong> i <strong>všechny jeho hlasy</strong>.<br>Tohle <strong>nejde vrátit zpět</strong>.',
+    'Ano, vyhodit');
+}
 document.getElementById('resetBtn').addEventListener('click', ()=>openResetModal('data'));
+document.getElementById('usersBtn').addEventListener('click', ()=>openResetModal('users'));
 document.getElementById('votersBtn').addEventListener('click', ()=>openResetModal('voters'));
 document.getElementById('resetCancel').addEventListener('click', ()=>{
   document.getElementById('resetOverlay').classList.remove('show');
@@ -275,6 +340,8 @@ document.getElementById('resetConfirm').addEventListener('click', async ()=>{
     let res;
     if(pending.type === 'deleteBeer'){
       res = await fetch('/api/admin/beers', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete', name:pending.name})});
+    } else if(pending.type === 'kickVoter'){
+      res = await fetch('/api/admin/voters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'kick', voter:pending.voter})});
     } else {
       res = await fetch('/api/admin/reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:pending.scope})});
     }
@@ -282,8 +349,12 @@ document.getElementById('resetConfirm').addEventListener('click', async ()=>{
     else if(!res.ok){ throw new Error(); }
     else{
       if(pending.type === 'deleteBeer') toast('Pivo smazáno 🧹');
-      else toast(pending.scope==='voters' ? 'Uživatelé smazáni 🧹' : 'Vše smazáno 🧹');
-      load();
+      else if(pending.type === 'kickVoter') toast('Hlasující vyhozen 🥾');
+      else if(pending.scope === 'voters') toast('Uživatelé smazáni 🧹');
+      else if(pending.scope === 'users') toast('Uživatelé i hlasy smazány 🧹');
+      else toast('Vše smazáno 🧹');
+      // reload both lists - most actions touch votes, which affects both.
+      load(); loadVoters();
     }
   }catch(e){ toast('Chyba při mazání, zkus znovu'); }
   btn.disabled = false; btn.textContent = label;

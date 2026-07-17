@@ -3,8 +3,9 @@ import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
 
 // POST /api/admin/reset -> data reset (protected by the admin cookie).
 //   body {"scope":"data"}   (default) -> deletes all votes and beers
-//   body {"scope":"voters"}           -> deletes all users (login names)
-// Note: deleting users keeps the votes, so the ranking stays. If someone
+//   body {"scope":"voters"}           -> deletes all users (login names), keeps votes
+//   body {"scope":"users"}            -> deletes all users and votes, keeps beers
+// Note: with scope "voters" the votes stay, so the ranking stays. If someone
 // registers again under the same name, they "inherit" their old votes.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
@@ -20,6 +21,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const scope: string = body?.scope || 'data';
 
   if (scope === 'voters') {
+    await sql`DELETE FROM voters`;
+  } else if (scope === 'users') {
+    await sql`DELETE FROM votes`;
     await sql`DELETE FROM voters`;
   } else {
     await sql`DELETE FROM votes`;
