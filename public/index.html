@@ -24,7 +24,9 @@
   .head{margin:6px 2px 20px;}
   .head h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.75rem;line-height:1.05;letter-spacing:-.02em;}
   .head h1::after{content:"";display:block;width:44px;height:5px;border-radius:99px;background:linear-gradient(90deg,var(--fill-a),var(--amber));margin-top:10px;}
+  .head .subhead{font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:1.1rem;color:var(--ink);margin-top:12px;}
   .head p{color:var(--muted);font-size:.95rem;margin-top:8px;}
+  .head .subhead + p{margin-top:4px;}
 
   /* login */
   .login-wrap{display:none;margin-top:6vh;}
@@ -133,7 +135,8 @@
 <body>
   <div class="head">
     <h1>Pivní<br>slavnosti</h1>
-    <p>Ohodnoť piva 1–10</p>
+    <p class="subhead">Hodnocení piv účastníky</p>
+    <p>Ohodnoť piva známkou 1–10, kde 1 je nejhorší a 10 je nejlepší</p>
   </div>
 
   <div class="loader show" id="loader">
