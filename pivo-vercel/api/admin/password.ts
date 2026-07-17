@@ -10,8 +10,9 @@ import {
 } from '../../lib/db.js';
 
 // POST /api/admin/password  body: {"current":"...","next":"..."}
-//   Ověří současné heslo, uloží nové (jako hash) do DB a přenastaví cookie
-//   novým tokenem, aby admin zůstal přihlášený. Chráněno admin cookie.
+//   Verifies the current password, stores the new one (as a hash) in the DB
+//   and re-sets the cookie with a new token so the admin stays logged in.
+//   Protected by the admin cookie.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 
@@ -35,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   await setAdminPassword(next);
 
-  // Nové heslo → nový token. Přenastavíme cookie, ať admin zůstane přihlášený.
+  // New password -> new token. Re-set the cookie so the admin stays logged in.
   res.setHeader('Set-Cookie', adminCookie(tokenFromHash(await currentPasswordHash())));
   res.json({ ok: true });
 }

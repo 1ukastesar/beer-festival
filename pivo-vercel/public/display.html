@@ -12,8 +12,8 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   html{height:100%;}
-  /* dvh = dynamická výška viewportu → počítá se se skutečným oknem
-     (i s lištami prohlížeče), ne s celoobrazovkovou výškou. */
+  /* dvh = dynamic viewport height -> based on the real window (including
+     browser bars), not the fullscreen height. */
   body{
     height:100vh;height:100dvh;overflow:hidden;
     font-family:'Fraunces',Georgia,serif;
@@ -23,10 +23,10 @@
   h1{font-family:'Alfa Slab One',cursive;font-size:3.6vw;text-align:center;color:var(--gold);
     text-shadow:0 3px 0 var(--amber-deep),0 6px 18px rgba(0,0,0,.6);margin-bottom:.1em;letter-spacing:1px;}
   .sub{text-align:center;font-style:italic;font-size:1.2vw;opacity:.65;margin-bottom:1.5vh;}
-  /* board je grid; počet sloupců se nastaví v JS podle počtu piv.
-     min-height:0 nechá board zmenšit se ve flex sloupci a overflow:hidden
-     zajistí, že řádky nikdy nepřetečou přes hlavičku/patičku – dolní
-     navigace tak zůstane vidět i v malém okně. */
+  /* board is a grid; the column count is set in JS from the beer count.
+     min-height:0 lets the board shrink in the flex column and overflow:hidden
+     ensures the rows never spill over the header/footer, so the bottom
+     navigation stays visible even in a small window. */
   .board{flex:1;min-height:0;overflow:hidden;display:grid;gap:.8vh 1.5vw;align-content:center;grid-auto-flow:column;}
   .row{
     display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.8vw;
@@ -45,7 +45,7 @@
   .empty{text-align:center;font-size:1.6vw;opacity:.5;font-style:italic;margin-top:6vh;}
   .foot{text-align:center;font-size:1vw;opacity:.4;font-style:italic;margin-top:1vh;}
   .info{min-width:0;}
-  /* indikátor stránek (jen když se piva stránkují) */
+  /* page indicator (only when the beers are paginated) */
   .pageind{display:flex;justify-content:center;align-items:center;gap:1vw;height:1.6vh;margin-top:.6vh;}
   .pageind .dot{width:1.1vh;height:1.1vh;border-radius:50%;background:rgba(253,246,227,.22);transition:all .4s;cursor:pointer;}
   .pageind .dot:hover{background:rgba(253,246,227,.5);}
@@ -62,36 +62,36 @@
 <script>
 const medals=['🥇','🥈','🥉'];
 
-// --- konfigurace stránkování ---
-const PER_PAGE  = 12;      // víc piv než tohle → žebříček se rozdělí na stránky
-const PAGE_MS   = 12000;   // jak často se stránka automaticky přepne (ms)
+// --- pagination config ---
+const PER_PAGE  = 12;      // more beers than this -> the ranking splits into pages
+const PAGE_MS   = 12000;   // how often a page switches automatically (ms)
 
-let data=[];               // poslední seřazená data ze serveru
-let page=0;                // aktuální stránka (0-based)
+let data=[];               // last sorted data from the server
+let page=0;                // current page (0-based)
 let lastTop=null;
 let pageTimer=null;
 
 function pageCount(){ return Math.max(1, Math.ceil(data.length/PER_PAGE)); }
 
-// Rozvrhne řádky pro n piv na stránce: do 8 jeden sloupec, víc → dva sloupce.
-// Velikost písma řádku škáluje podle SKUTEČNĚ dostupné výšky boardu (ne jen
-// šířky), ať se vše vejde i v okně, které není přes celou obrazovku.
+// Lays out the rows for n beers on a page: up to 8 one column, more -> two.
+// The row font size scales to the ACTUAL available board height (not just
+// width), so everything fits even in a window that is not fullscreen.
 function layout(n){
   const cols = n>8 ? 2 : 1;
   const perCol = Math.ceil(n/cols);
   const board=document.getElementById('board');
   board.style.gridTemplateColumns = cols===2 ? '1fr 1fr' : '1fr';
-  // minmax(0,1fr) → stopy se smí zmenšit pod obsah, takže se řádky nikdy
-  // nenafouknou přes board (a přes hlavičku/patičku).
+  // minmax(0,1fr) -> tracks may shrink below their content, so the rows never
+  // grow past the board (and over the header/footer).
   board.style.gridTemplateRows = 'repeat('+perCol+',minmax(0,1fr))';
-  // Font odvozený ze SKUTEČNÉ výšky na jeden řádek (po odečtení mezer).
-  // Řádek zabírá zhruba 2.6× velikost fontu (název + proužek + odsazení),
-  // se stropem podle šířky, ať na širokém a nízkém okně nic nepřeteče.
+  // Font derived from the ACTUAL height per row (after subtracting the gaps).
+  // A row takes about 2.6x the font size (name + bar + padding), capped by
+  // width so nothing overflows on a wide, short window.
   const gap = window.innerHeight * 0.008;              // ~ .8vh row-gap
-  const avail = board.clientHeight;                    // px k dispozici na řádky
+  const avail = board.clientHeight;                    // px available for rows
   const perRow = avail > 0 ? (avail - gap*(perCol-1)) / perCol : Infinity;
   const byH = perRow / 2.6;
-  const byW = window.innerWidth * 0.026;               // strop ~2.6vw
+  const byW = window.innerWidth * 0.026;               // cap ~2.6vw
   const fs = Math.max(10, Math.min(byW, byH));          // px
   document.documentElement.style.setProperty('--rowfs', fs + 'px');
   return {cols,perCol};
@@ -99,8 +99,8 @@ function layout(n){
 
 function hlasu(n){if(n===1)return 'hlas';if(n>=2&&n<=4)return 'hlasy';return 'hlasů';}
 
-// Vykreslí tečky indikátoru stránek (skryté, když je jen jedna stránka).
-// Kliknutím na tečku se přepne na danou stránku (ručně → reset časovače).
+// Renders the page indicator dots (hidden when there is only one page).
+// Clicking a dot switches to that page (manual -> resets the timer).
 function renderDots(){
   const ind=document.getElementById('pageind');
   const pc=pageCount();
@@ -113,8 +113,8 @@ function renderDots(){
   });
 }
 
-// Vykreslí aktuální stránku. Pořadí (rank) je globální napříč stránkami,
-// takže druhá stránka pokračuje 13., 14., …
+// Renders the current page. The rank is global across pages, so the second
+// page continues with 13, 14, and so on.
 function drawPage(){
   const board=document.getElementById('board');
   if(data.every(d=>d.count===0)){
@@ -129,7 +129,7 @@ function drawPage(){
   layout(slice.length);
   board.innerHTML='';
   slice.forEach((d,i)=>{
-    const gi=start+i;                       // globální index (pořadí)
+    const gi=start+i;                       // global index (rank)
     const row=document.createElement('div');
     row.className='row'+(gi===0&&d.count>0?' top':'');
     const rank=(gi<3&&d.count>0)?medals[gi]:(gi+1);
@@ -152,9 +152,9 @@ function startRotation(){
   if(pageCount()>1) pageTimer=setInterval(()=>goToPage(page+1,false), PAGE_MS);
 }
 
-// Přepne na stránku p (wrap na obě strany). manual=true → reset odpočtu,
-// ať po ručním přepnutí uživatel dostane plný interval, než se stránka
-// přepne sama.
+// Switches to page p (wraps both ways). manual=true -> resets the countdown,
+// so after a manual switch the user gets the full interval before the page
+// advances on its own.
 function goToPage(p, manual){
   const pc=pageCount();
   if(pc<=1){ page=0; drawPage(); return; }
@@ -163,8 +163,8 @@ function goToPage(p, manual){
   if(manual) startRotation();
 }
 
-// Spustí/zastaví automatické přepínání stránek podle počtu stránek.
-// Běžící časovač nechává být, ať se cadence po pollingu neresetuje.
+// Starts/stops automatic page switching based on the page count.
+// Leaves a running timer alone so the cadence is not reset after polling.
 function syncRotation(){
   if(pageCount()>1){ if(!pageTimer) startRotation(); }
   else stopRotation();
@@ -173,7 +173,7 @@ function syncRotation(){
 function render(fresh){
   fresh.sort((a,b)=>b.avg-a.avg);
   data=fresh;
-  if(page>=pageCount()) page=0;      // po ubytí piv nepřetéct mimo rozsah
+  if(page>=pageCount()) page=0;      // if beers were removed, do not run past the range
   drawPage();
   syncRotation();
   const board=document.getElementById('board');
@@ -182,7 +182,7 @@ function render(fresh){
   lastTop=top;
 }
 
-// Polling: každé 2.5s se zeptáme serveru na výsledky (serverless neumí SSE).
+// Polling: we ask the server for results (serverless cannot do SSE).
 async function poll(){
   try{
     const res = await fetch('/api/results', {cache:'no-store'});
@@ -190,14 +190,14 @@ async function poll(){
   }catch(err){ console.error(err); }
 }
 poll();
-// Polling po 30 sekundách – pivní žebříček nepotřebuje sekundovou aktualizaci
-// a šetří to Vercel function invocations (Hobby plán má limit).
+// Poll every 30 seconds - a beer ranking does not need per-second updates,
+// and this saves Vercel function invocations (the Hobby plan has a limit).
 setInterval(poll, 30000);
 
-// Font je teď v px podle výšky → po změně velikosti okna překreslit.
+// The font is now in px based on height -> redraw after a window resize.
 window.addEventListener('resize', ()=>{ if(data.length) drawPage(); });
 
-// Ruční listování šipkami na klávesnici (← → i ↑ ↓). Ručně → reset časovače.
+// Manual paging with the keyboard arrows (left/right and up/down). Manual -> resets the timer.
 document.addEventListener('keydown', e=>{
   if(pageCount()<=1) return;
   if(e.key==='ArrowRight'||e.key==='ArrowDown'){ goToPage(page+1,true); e.preventDefault(); }

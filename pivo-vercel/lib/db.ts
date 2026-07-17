@@ -1,23 +1,24 @@
 import { neon } from '@neondatabase/serverless';
 import { createHash } from 'node:crypto';
 
-// Neon serverless klient. Connection string z env DATABASE_URL
-// (Vercel ho nastaví automaticky po propojení s Neon, nebo ho zadáš ručně).
+// Neon serverless client. Connection string from the DATABASE_URL env var
+// (Vercel sets it automatically once linked to Neon, or set it manually).
 export const sql = neon(process.env.DATABASE_URL!);
 
-// Výchozí heslo k adminu z env. Slouží jen dokud si admin heslo nezmění –
-// pak má přednost hodnota uložená v DB (viz currentPasswordHash).
+// Default admin password from env. Used only until the admin changes the
+// password; after that the value stored in the DB wins (see currentPasswordHash).
 export function defaultAdminPassword(): string {
   return process.env.ADMIN_PASSWORD || 'pivo-admin';
 }
 
-// Hash hesla. V DB i pro porovnání držíme jen tenhle hash, ne plaintext.
+// Password hash. Both in the DB and for comparison we keep only this hash,
+// never the plaintext.
 function hashPassword(pw: string): string {
   return createHash('sha256').update('pivo-pw|' + pw).digest('hex');
 }
 
-// Aktuální hash hesla: přednost má hodnota uložená v DB (admin si heslo
-// změnil), jinak spadneme na výchozí heslo z env.
+// Current password hash: the value stored in the DB wins (admin changed the
+// password), otherwise we fall back to the default password from env.
 export async function currentPasswordHash(): Promise<string> {
   const rows = (await sql`
     SELECT value FROM settings WHERE key = 'admin_pw_hash'
@@ -25,20 +26,22 @@ export async function currentPasswordHash(): Promise<string> {
   return rows[0]?.value || hashPassword(defaultAdminPassword());
 }
 
-// Token do cookie = SHA-256(hash hesla + sůl). Do cookie tak nedáváme heslo
-// v plaintextu; kdo zahlédne cookie, nezíská heslo samotné. Když se heslo
-// změní, změní se i token → staré cookie přestane platit (proto po změně
-// hesla cookie hned přenastavujeme, ať admin zůstane přihlášený).
+// Cookie token = SHA-256(password hash + salt). This way we never put the
+// plaintext password in the cookie; anyone who sees the cookie does not get
+// the password itself. When the password changes the token changes too ->
+// the old cookie stops working (which is why we re-set the cookie right
+// after a password change so the admin stays logged in).
 export function tokenFromHash(hash: string): string {
   return createHash('sha256').update('pivo|' + hash).digest('hex');
 }
 
-// Ověří zadané heslo proti aktuálnímu (DB nebo env).
+// Verifies the given password against the current one (DB or env).
 export async function verifyPassword(pw: string): Promise<boolean> {
   return timingSafeEqualHex(hashPassword(pw), await currentPasswordHash());
 }
 
-// Uloží nové heslo (jako hash) do DB. Od téhle chvíle env heslo neplatí.
+// Stores a new password (as a hash) in the DB. From now on the env password
+// no longer applies.
 export async function setAdminPassword(pw: string): Promise<void> {
   const hash = hashPassword(pw);
   await sql`
@@ -47,13 +50,14 @@ export async function setAdminPassword(pw: string): Promise<void> {
   `;
 }
 
-// Hlavička Set-Cookie s admin tokenem (jedno místo pro login i změnu hesla).
+// Set-Cookie header with the admin token (one place for both login and
+// password change).
 export function adminCookie(token: string): string {
   return `pivo_admin=${token}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`;
 }
 
-// Porovnání dvou hex řetězců v konstantním čase – ať se hodnota nedá
-// uhádnout po znacích podle latence.
+// Constant-time comparison of two hex strings, so the value cannot be guessed
+// character by character from latency.
 function timingSafeEqualHex(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -61,12 +65,12 @@ function timingSafeEqualHex(a: string, b: string): boolean {
   return diff === 0;
 }
 
-// Lazy inicializace schématu – zavolá se na začátku každé funkce.
-// CREATE TABLE IF NOT EXISTS je idempotentní, takže opakované volání nevadí.
+// Lazy schema initialization - called at the start of every function.
+// CREATE TABLE IF NOT EXISTS is idempotent, so repeated calls are harmless.
 let initialized = false;
 export async function ensureSchema(): Promise<void> {
   if (initialized) return;
-  // CREATE tabulek jsou nezávislé → paralelně (šetří cold start).
+  // The CREATE statements are independent -> run them in parallel (saves cold start).
   await Promise.all([
     sql`
     CREATE TABLE IF NOT EXISTS beers (
@@ -95,7 +99,7 @@ export async function ensureSchema(): Promise<void> {
       value TEXT NOT NULL
     )`,
   ]);
-  // Migrace + index až po existenci tabulek; navzájem nezávislé.
+  // Migration + index only after the tables exist; independent of each other.
   await Promise.all([
     sql`ALTER TABLE votes ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''`,
     sql`CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes(voter)`,
@@ -103,7 +107,7 @@ export async function ensureSchema(): Promise<void> {
   initialized = true;
 }
 
-// Pomocník: ověří admin cookie proti aktuálnímu heslu (DB nebo env).
+// Helper: verifies the admin cookie against the current password (DB or env).
 export async function isAdmin(req: { headers: { cookie?: string } }): Promise<boolean> {
   const cookie = req.headers.cookie || '';
   const m = cookie.match(/(?:^|;\s*)pivo_admin=([^;]+)/);
@@ -113,8 +117,8 @@ export async function isAdmin(req: { headers: { cookie?: string } }): Promise<bo
   return timingSafeEqualHex(got, want);
 }
 
-// Pomocník: výsledky (průměr + počet) pro všechna piva s aspoň jedním hlasem,
-// plus aktivní piva bez hlasů (ať jsou vidět v hlasování). Vrací seřazené.
+// Helper: results (average + count) for all beers with at least one vote,
+// plus active beers with no votes (so they show up in voting). Returns them sorted.
 export async function computeResults(): Promise<
   { beer: string; avg: number; count: number; active: boolean }[]
 > {

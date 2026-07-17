@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
 
-// GET  /api/admin/beers → všechna piva se stavem (active) – jen admin
+// GET  /api/admin/beers -> all beers with their state (active) - admin only
 // POST /api/admin/beers body: {"action":"add|activate|deactivate","name":"..."}
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();

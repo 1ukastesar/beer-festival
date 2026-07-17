@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
 
-// POST /api/admin/reset → reset dat (chráněno admin cookie).
-//   body {"scope":"data"}   (default) → smaže všechny hlasy a piva
-//   body {"scope":"voters"}           → smaže všechny uživatele (přihlašovací jména)
-// Pozn.: smazání uživatelů nechává hlasy – žebříček zůstává. Když se někdo
-// zaregistruje znovu pod stejným jménem, svoje staré hlasy „zdědí".
+// POST /api/admin/reset -> data reset (protected by the admin cookie).
+//   body {"scope":"data"}   (default) -> deletes all votes and beers
+//   body {"scope":"voters"}           -> deletes all users (login names)
+// Note: deleting users keeps the votes, so the ranking stays. If someone
+// registers again under the same name, they "inherit" their old votes.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 

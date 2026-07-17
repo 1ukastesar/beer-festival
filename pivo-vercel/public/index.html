@@ -39,7 +39,7 @@
   .login-card .err{color:var(--danger);font-size:.9rem;margin-top:10px;text-align:center;min-height:1.2em;}
   .login-card .info{font-size:.82rem;color:var(--muted);margin-top:12px;text-align:center;line-height:1.45;}
 
-  /* loader při načítání dat (cold start umí trvat sekundy) */
+  /* loader while data is loading (cold start can take seconds) */
   .loader{display:none;margin:10vh auto 0;max-width:280px;text-align:center;}
   .loader.show{display:block;}
   .loader .glass{font-size:2.2rem;animation:bob 1.1s ease-in-out infinite;}
@@ -54,7 +54,7 @@
   .board-wrap{display:none;}
   .board-wrap.show{display:block;}
 
-  /* moje hodnocení nahoře při editaci (skroluje s obsahem) */
+  /* my ratings at the top while editing (scrolls with the content) */
   .stickyboard{display:none;background:#FFF6E2;border:1px solid #F3E3BC;border-radius:var(--r-lg);padding:14px 14px 6px;margin-bottom:16px;}
   .stickyboard.show{display:block;}
   .stickyboard h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:.95rem;color:var(--amber-deep);margin-bottom:4px;}
@@ -64,7 +64,7 @@
   .sb-row .n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .sb-row .v{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.05rem;color:var(--amber-deep);}
 
-  /* karta piva */
+  /* beer card */
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 16px 16px;margin-bottom:14px;box-shadow:var(--shadow-card);scroll-margin-top:16px;}
   .card.inactive{background:#FBF9F4;}
   .card.focus-flash{animation:flash 1s ease 2;}
@@ -76,7 +76,7 @@
   .card.inactive .lbl::after{content:"není na čepu";font-family:'Instrument Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--amber-deep);background:#FFF1D2;border:1px solid #F3DFAE;padding:3px 9px;border-radius:999px;}
   .clr{font-size:.82rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:4px;flex-shrink:0;}
 
-  /* beer meter 1–10: vybrané skóre vyplní segmenty jako pivo ve sklenici */
+  /* beer meter 1-10: the selected score fills the segments like beer in a glass */
   .scale{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;}
   .scale button.num{height:56px;border:1.5px solid var(--line);border-radius:8px;background:#FDFBF7;color:var(--muted);font-size:.92rem;font-weight:600;cursor:pointer;padding:0;transition:background .12s,color .12s,border-color .12s;}
   .scale button.num:first-child{border-top-left-radius:14px;border-bottom-left-radius:14px;}
@@ -103,7 +103,7 @@
   .submit:disabled{opacity:.45;cursor:not-allowed;}
   .hint{text-align:center;font-size:.85rem;color:var(--muted);line-height:1.5;margin-top:14px;padding:0 8px;}
 
-  /* žebříček */
+  /* ranking */
   .bhead{margin:4px 2px 14px;}
   .bhead h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.5rem;letter-spacing:-.01em;}
   .bhead .sub{color:var(--muted);font-size:.9rem;margin-top:4px;}
@@ -173,18 +173,19 @@
   <div class="toast" id="toast"></div>
 
 <script>
-// --- identita hlasujícího (vlastní string, registrovaný v DB) ---
+// --- voter identity (a free-form string, registered in the DB) ---
 const VOTER_KEY = 'pivo_voter_id';
 let voterId = localStorage.getItem(VOTER_KEY) || '';
 
-// activeBeers: pole jmen piv, co jsou teď na čepu (z /api/beers)
-// myVotes: {beer: {score, note, active}} z /api/vote?voter=
-// editable: spojený seznam piv, co host uvidí v editaci = aktivní + ta z myVotes (i inactive)
+// activeBeers: array of beer names currently on tap (from /api/beers)
+// myVotes: {beer: {score, note, active}} from /api/vote?voter=
+// editable: combined list of beers the guest sees while editing = active plus
+//   the ones from myVotes (including inactive)
 let activeBeers = [];
 let myVotes = {};
-let selection = {};   // {beer: {score, note}} – aktuální výběr (před odesláním)
+let selection = {};   // {beer: {score, note}} - current selection (before submit)
 let pollTimer = null;
-let lastResults = []; // poslední výsledky ze serveru pro sticky leaderboard
+let lastResults = []; // last results from the server for the sticky leaderboard
 
 function toast(msg){
   const t = document.getElementById('toast');
@@ -193,7 +194,7 @@ function toast(msg){
 }
 
 function editableList(){
-  // aktivní piva + neaktivní, která jsem v minulosti ohodnotil
+  // active beers plus inactive ones I rated in the past
   const list = [...activeBeers];
   for(const b of Object.keys(myVotes)){
     if(!myVotes[b].active && !list.includes(b)) list.push(b);
@@ -243,24 +244,26 @@ function renderCards(){
       });
       const clr = card.querySelector('.clr');
       if(clr) clr.addEventListener('click',()=>{
-        // zrušení smaže celé hodnocení tohoto piva (včetně poznámky)
+        // clearing removes the entire rating of this beer (including the note)
         delete selection[beer];
         renderCards();
       });
     }
 
-    // textarea: měnit note a counter; pro inactive pivo je note furt editovatelná
+    // textarea: change note and counter; for an inactive beer the note is
+    // still editable
     const ta = card.querySelector('textarea');
     const cur = card.querySelector('.cur');
     ta.addEventListener('input', ()=>{
       const v = ta.value.slice(0,100);
       if(inactive){
-        // u inactive piva nemůžeme hodnoty smazat – musíme zachovat předchozí score
+        // for an inactive beer we cannot clear the values - we must keep the previous score
         selection[beer] = { score: myVotes[beer].score, note: v };
       } else {
-        // pro aktivní, pokud uživatel ještě nevybral skóre, note se neukládá
-        // (nevíme co s ní, dokud nedá body). Ale UX: necháme ji v selection
-        // i bez score – při odeslání score==undefined hlas přeskočíme.
+        // for an active beer, if the user has not picked a score yet, the note
+        // is not saved (we do not know what to do with it until they give
+        // points). UX-wise we still keep it in selection without a score - at
+        // submit time a vote with score==undefined is skipped.
         selection[beer] = { score: selection[beer]?.score, note: v };
       }
       cur.textContent = v.length;
@@ -275,19 +278,20 @@ function escapeHtml(s){
 }
 
 async function submitVotes(){
-  // do payloadu jdou jen piva, co mají buď score (aktivní) nebo jsou inactive
-  // s předchozím score (note edit). Klíč: aktivní pivo bez score se neposílá.
+  // only beers that have either a score (active) or are inactive with a
+  // previous score (note edit) go into the payload. Key point: an active beer
+  // without a score is not sent.
   const votes = [];
   for(const beer of Object.keys(selection)){
     const s = selection[beer];
     const inactive = myVotes[beer] && !myVotes[beer].active;
     if(inactive){
-      // posíláme score z DB (server si ho stejně přepíše), note z UI
+      // send the score from the DB (the server overwrites it anyway), note from the UI
       votes.push({ beer, score: myVotes[beer].score, note: s.note || '' });
     } else if(typeof s.score === 'number'){
       votes.push({ beer, score: s.score, note: s.note || '' });
     }
-    // jinak: aktivní pivo bez score = neoceňujeme, ignorujeme
+    // otherwise: an active beer without a score = not rating it, ignore
   }
   if(votes.length===0){ toast('Ohodnoť aspoň jedno pivo 🍺'); return; }
 
@@ -297,14 +301,14 @@ async function submitVotes(){
       body:JSON.stringify({voter:voterId, votes})
     });
     if(res.status === 401){
-      // voter v DB zmizel (admin reset) – zpět na login
+      // the voter disappeared from the DB (admin reset) - back to login
       localStorage.removeItem(VOTER_KEY); voterId = '';
       showLogin('Tvoje jméno už neexistuje, zaregistruj se znovu.');
       return;
     }
     if(!res.ok) throw new Error(await res.text());
     toast('Odesláno, díky! 🍻');
-    // reload moje hlasy a zobraz žebříček
+    // reload my votes and show the ranking
     await loadMyVotes();
     showBoard();
   }catch(e){ toast('Chyba odeslání, zkus to znovu'); console.error(e); }
@@ -315,7 +319,7 @@ async function loadMyVotes(){
     const mine = await (await fetch('/api/vote?voter='+encodeURIComponent(voterId))).json();
     myVotes = mine || {};
   }catch(e){ myVotes = {}; }
-  // selection se inicializuje z myVotes při vstupu do editace
+  // selection is initialized from myVotes when entering edit mode
   selection = {};
   for(const beer of Object.keys(myVotes)){
     selection[beer] = { score: myVotes[beer].score, note: myVotes[beer].note || '' };
@@ -345,12 +349,12 @@ async function pollBoard(){
 function showVote(focusBeer){
   document.getElementById('boardWrap').classList.remove('show');
   document.getElementById('voteWrap').classList.add('show');
-  // sticky leaderboard při editaci ukazuje MOJE hodnocení (ne celkový žebříček)
+  // the sticky leaderboard while editing shows MY ratings (not the overall ranking)
   document.getElementById('stickyboard').classList.add('show');
   document.getElementById('stickyboardTitle').textContent = '⭐ Moje hodnocení';
   renderMySticky();
-  // polling celkového žebříčku pro editaci nepotřebujeme – zastav ho, ať
-  // sticky neukazuje cizí data omylem
+  // we do not need to poll the overall ranking while editing - stop it so the
+  // sticky board does not accidentally show other people's data
   if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
   renderCards();
   if(focusBeer){
@@ -366,7 +370,7 @@ function showVote(focusBeer){
 }
 
 function cssEscape(s){
-  // jednoduchá náhrada CSS.escape pro starší prohlížeče
+  // simple CSS.escape fallback for older browsers
   return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g,'\\$&');
 }
 
@@ -394,7 +398,7 @@ function renderBoard(data){
       '<div><div class="bname">'+escapeHtml(d.beer)+myHint+'</div><div class="bbar"><div style="width:'+pct+'%"></div></div></div>'+
       '<div><div class="bavg">'+avg+'</div><div class="bcnt">'+d.count+' '+hlasu(d.count)+'</div></div>';
     row.addEventListener('click', ()=>{
-      // klik na pivo = otevři editaci s focusem na tohle pivo
+      // click on a beer = open editing focused on this beer
       showVote(d.beer);
     });
     board.appendChild(row);
@@ -403,8 +407,8 @@ function renderBoard(data){
 
 function renderMySticky(){
   const wrap = document.getElementById('sticky');
-  // sebereme moje skóre + aktuální výběr (kdybych něco překlikl, ale ještě neuložil)
-  // selection má přednost před myVotes (rozpracovaná editace)
+  // take my scores plus the current selection (in case I changed something but
+  // have not saved yet). selection takes precedence over myVotes (work-in-progress edit)
   const merged = {};
   for(const b of Object.keys(myVotes)){
     merged[b] = { score: myVotes[b].score };
@@ -457,7 +461,7 @@ function showLogin(msg){
 async function tryAutoLogin(){
   if(!voterId) return { ok: true, exists: false };
   try{
-    // GET handler žije v api/voter/register.ts → /api/voter/register
+    // the GET handler lives in api/voter/register.ts -> /api/voter/register
     const r = await fetch('/api/voter/register?voter=' + encodeURIComponent(voterId));
     if(!r.ok) return { ok: false };
     const j = await r.json();
@@ -496,7 +500,7 @@ async function doLogin(){
 
 async function startApp(){
   showLoader(true);
-  // piva a moje hlasy paralelně – ušetří jeden round-trip
+  // beers and my votes in parallel - saves one round-trip
   const [beersRes] = await Promise.all([
     fetch('/api/beers').then(r => r.json()),
     loadMyVotes()
@@ -505,7 +509,7 @@ async function startApp(){
   renderCards();
   showLoader(false);
   document.getElementById('voteWrap').classList.add('show');
-  // pokud už dřív hlasoval, rovnou ukaž žebříček (s možností úpravy)
+  // if they already voted before, show the ranking right away (with the option to edit)
   if(Object.keys(myVotes).length > 0){ showBoard(); }
 }
 
@@ -517,16 +521,16 @@ async function init(){
     if(e.key === 'Enter') doLogin();
   });
 
-  // Auto-login: pokud máme v localStorage voter ID, ověříme ho proti DB.
+  // Auto-login: if we have a voter ID in localStorage, verify it against the DB.
   const check = await tryAutoLogin();
   if(check.ok && check.exists){
     await startApp();
   } else if(check.ok && !check.exists){
-    // server potvrdil, že jméno v DB není (reset akce) → smaž a ukaž login
+    // the server confirmed the name is not in the DB (reset action) -> clear it and show login
     if(voterId){ localStorage.removeItem(VOTER_KEY); voterId = ''; }
     showLogin();
   } else {
-    // síťová chyba – jméno nemaž, jen ho předvyplň, host klikne Pokračovat
+    // network error - do not clear the name, just prefill it, the guest clicks Continue
     if(voterId){ document.getElementById('loginInput').value = voterId; }
     showLogin();
   }

@@ -1,15 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema } from '../lib/db.js';
 
-// POST /api/vote  body: {"voter":"<id>","votes":[{"beer":"Plzeň","score":8,"note":"..."}]}
-//   Upsert: smaže předchozí hlasy voteru a vloží nový set.
-//   Pravidla:
-//     - aktivní pivo: přijme se score + note (nový nebo aktualizovaný hlas)
-//     - neaktivní pivo (sundané z čepu): host už ho dřív hodnotil; smí MĚNIT
-//       jen note, score zůstává jak bylo (frontend posílá původní score zpátky,
-//       ale pro jistotu si ho server načte z DB sám, ať to nejde obejít).
+// POST /api/vote  body: {"voter":"<id>","votes":[{"beer":"Plzen","score":8,"note":"..."}]}
+//   Upsert: deletes the voter's previous votes and inserts the new set.
+//   Rules:
+//     - active beer: score + note are accepted (new or updated vote)
+//     - inactive beer (taken off tap): the guest rated it earlier; they may
+//       change only the note, the score stays as it was (the frontend sends
+//       the original score back, but to be safe the server reads it from the
+//       DB itself so it cannot be bypassed).
 //
-// GET  /api/vote?voter=<id>  → {beer: {score, note}} pro editaci
+// GET  /api/vote?voter=<id>  -> {beer: {score, note}} for editing
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 
@@ -42,7 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'chybí nebo neplatné voter id' });
   }
 
-  // Tři nezávislé dotazy paralelně: registrace voteru, stav piv, předchozí hlasy.
+  // Three independent queries in parallel: voter registration, beer state,
+  // previous votes.
   const [voterCheck, beersRows, prevRows] = (await Promise.all([
     sql`SELECT 1 FROM voters WHERE voter = ${voter} LIMIT 1`,
     sql`SELECT name, active FROM beers`,
@@ -60,9 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const beerState = new Map(beersRows.map((b) => [b.name, b.active]));
   const prevScore = new Map(prevRows.map((p) => [p.beer, p.score]));
 
-  // Validace a normalizace hlasů. Pro inactive piva přepíšeme score na to,
-  // co host už dřív zadal (frontend score je tam jen informativně, ale
-  // server si nedá vnutit změnu skóre po sundání z čepu).
+  // Validate and normalize the votes. For inactive beers we overwrite the
+  // score with what the guest entered earlier (the frontend score is only
+  // informational there; the server will not let the score be changed once
+  // the beer is off tap).
   type CleanVote = { beer: string; score: number; note: string };
   const clean: CleanVote[] = [];
 
@@ -74,26 +77,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const isActive = beerState.get(v.beer);
 
     if (isActive) {
-      // aktivní → score se přijme z requestu (1–10)
+      // active -> the score is accepted from the request (1-10)
       if (!Number.isInteger(v.score) || v.score < 1 || v.score > 10) {
         return res.status(400).json({ error: `neplatné skóre pro ${v.beer}` });
       }
       clean.push({ beer: v.beer, score: v.score, note });
     } else {
-      // neaktivní → musí mít předchozí hlas, jinak nelze hlasovat
+      // inactive -> must have a previous vote, otherwise voting is not allowed
       const prev = prevScore.get(v.beer);
       if (prev === undefined) {
         return res.status(400).json({
           error: `pivo ${v.beer} už není na čepu a předtím jsi ho neohodnotil`,
         });
       }
-      // skóre vezmeme z DB, ne z requestu
+      // take the score from the DB, not from the request
       clean.push({ beer: v.beer, score: prev, note });
     }
   }
 
-  // Upsert: smazat staré hlasy voteru, vložit nové jedním multi-row INSERTem
-  // (unnest místo cyklu = 1 dotaz místo N round-tripů do DB).
+  // Upsert: delete the voter's old votes, insert the new ones in a single
+  // multi-row INSERT (unnest instead of a loop = 1 query instead of N DB
+  // round-trips).
   const now = Date.now();
   await sql`DELETE FROM votes WHERE voter = ${voter}`;
   if (clean.length > 0) {

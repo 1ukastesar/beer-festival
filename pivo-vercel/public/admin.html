@@ -42,13 +42,13 @@
   .hint{text-align:center;color:var(--muted);font-size:.85rem;line-height:1.5;margin-top:14px;}
   .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#FFF6E9;padding:12px 20px;border-radius:999px;font-weight:600;font-size:.95rem;box-shadow:var(--shadow-pop);opacity:0;transition:all .25s;z-index:50;pointer-events:none;}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
-  /* nebezpečná zóna */
+  /* danger zone */
   .danger-card{border:2px solid #F0C5BB;background:#FDF6F4;}
   .danger-card .dz-title{font-weight:700;color:var(--red);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
   .danger-card p{font-size:.88rem;color:#8A6358;line-height:1.45;margin-bottom:12px;}
   .btn-danger{width:100%;padding:14px;background:var(--red);color:#fff;font-weight:700;font-size:1rem;}
 
-  /* potvrzovací modal */
+  /* confirmation modal */
   .overlay{position:fixed;inset:0;background:rgba(36,22,7,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:24px;z-index:100;}
   .overlay.show{display:flex;}
   .modal{background:#fff;border:3px solid var(--red);border-radius:var(--r-lg);padding:26px 22px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center;}
@@ -201,10 +201,10 @@ document.getElementById('newBeer').addEventListener('keydown',e=>{if(e.key==='En
 document.getElementById('passBtn').addEventListener('click',changePassword);
 document.getElementById('newPass2').addEventListener('keydown',e=>{if(e.key==='Enter')changePassword();});
 
-// zkus rovnou načíst (pokud už je cookie z dřívějška)
+// try loading right away (in case a cookie already exists from before)
 load();
 
-// --- reset s potvrzením (parametrizovaný modal) ---
+// --- reset with confirmation (parameterized modal) ---
 let pendingScope = 'data';
 function openResetModal(scope){
   pendingScope = scope;

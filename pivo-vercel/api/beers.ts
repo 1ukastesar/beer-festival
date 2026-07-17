@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema } from '../lib/db.js';
 
-// GET /api/beers → seznam aktivních piv (jména) pro hlasovací stránku
+// GET /api/beers -> list of active beers (names) for the voting page
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
   const rows = (await sql`
