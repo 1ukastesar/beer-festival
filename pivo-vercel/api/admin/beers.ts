@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
 
 // GET  /api/admin/beers -> all beers with their state (active) - admin only
-// POST /api/admin/beers body: {"action":"add|activate|deactivate","name":"..."}
+// POST /api/admin/beers body: {"action":"add|activate|deactivate|delete|rename","name":"...","newName":"..."}
+//   rename uses newName; delete also removes that beer's votes.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 
@@ -58,6 +59,30 @@ case 'add': {
       case 'deactivate':
         await sql`UPDATE beers SET active = false WHERE name = ${name}`;
         break;
+      case 'delete':
+        // Remove the beer and its votes so a later beer with the same name
+        // starts fresh instead of inheriting the old votes.
+        await sql`DELETE FROM votes WHERE beer = ${name}`;
+        await sql`DELETE FROM beers WHERE name = ${name}`;
+        break;
+      case 'rename': {
+        const newName: string = (body?.newName || '').trim();
+        if (!newName || newName.length > 80) {
+          return res.status(400).json({ error: 'neplatné nové jméno piva' });
+        }
+        if (newName !== name) {
+          const clash = (await sql`
+            SELECT 1 FROM beers WHERE name = ${newName} LIMIT 1
+          `) as { '?column?': number }[];
+          if (clash.length > 0) {
+            return res.status(409).json({ error: 'pivo s tímto jménem už existuje' });
+          }
+          // name is not a foreign key, so the votes have to be moved too.
+          await sql`UPDATE beers SET name = ${newName} WHERE name = ${name}`;
+          await sql`UPDATE votes SET beer = ${newName} WHERE beer = ${name}`;
+        }
+        break;
+      }
       default:
         return res.status(400).json({ error: 'neznámá akce' });
     }

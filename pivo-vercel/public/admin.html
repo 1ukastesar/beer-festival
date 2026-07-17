@@ -27,7 +27,7 @@
   button{font:inherit;cursor:pointer;border:none;border-radius:var(--r-md);transition:transform .12s;}
   button:active{transform:scale(.97);}
   .btn-primary{background:var(--ink);color:#FFF6E9;padding:13px 20px;font-weight:600;font-size:1rem;}
-  .row{display:flex;align-items:center;gap:10px;padding:12px 12px;border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:10px;background:#FDFBF7;}
+  .row{display:flex;align-items:center;gap:7px;padding:12px 12px;border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:10px;background:#FDFBF7;}
   .row.off{background:#F5F2EB;}
   .row.off .name{color:var(--muted);}
   .row .name{flex:1;font-weight:600;font-size:1rem;min-width:0;overflow:hidden;text-overflow:ellipsis;}
@@ -37,6 +37,8 @@
   .toggle{padding:9px 14px;font-size:.88rem;font-weight:600;white-space:nowrap;}
   .toggle.deact{background:#FBEAE5;color:var(--red);}
   .toggle.act{background:#E5F2E5;color:var(--green);}
+  .mini{padding:9px 10px;font-size:1rem;line-height:1;background:#F1EDE5;color:var(--ink);border-radius:10px;flex-shrink:0;}
+  .mini.del{background:#FBEAE5;}
   .addrow{display:flex;gap:8px;margin-top:6px;}
   .addrow input{flex:1;min-width:0;}
   .hint{text-align:center;color:var(--muted);font-size:.85rem;line-height:1.5;margin-top:14px;}
@@ -115,6 +117,7 @@
 
 <script>
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
 
 async function login(){
   const p=document.getElementById('pass').value;
@@ -141,13 +144,22 @@ function render(beers){
   beers.forEach(b=>{
     const row=document.createElement('div');
     row.className='row'+(b.active?'':' off');
+    const enc=encodeURIComponent(b.name);
     row.innerHTML='<span class="name">🍺 '+b.name+'</span>'+
-      '<span class="badge '+(b.active?'on':'offb')+'">'+(b.active?'na čepu':'sundáno')+'</span>'+
-      '<button class="toggle '+(b.active?'deact':'act')+'" data-name="'+encodeURIComponent(b.name)+'" data-act="'+(b.active?'deactivate':'activate')+'">'+(b.active?'Sundat':'Nasadit')+'</button>';
+      '<span class="badge '+(b.active?'on':'offb')+'">'+(b.active?'na čepu':'odraženo')+'</span>'+
+      '<button class="toggle '+(b.active?'deact':'act')+'" data-name="'+enc+'" data-act="'+(b.active?'deactivate':'activate')+'">'+(b.active?'Odrazit':'Narazit')+'</button>'+
+      '<button class="mini ren" data-name="'+enc+'" title="Přejmenovat" aria-label="Přejmenovat">✏️</button>'+
+      '<button class="mini del" data-name="'+enc+'" title="Smazat" aria-label="Smazat">🗑</button>';
     list.appendChild(row);
   });
   list.querySelectorAll('.toggle').forEach(btn=>{
     btn.addEventListener('click',()=>action(btn.dataset.act, decodeURIComponent(btn.dataset.name)));
+  });
+  list.querySelectorAll('.mini.ren').forEach(btn=>{
+    btn.addEventListener('click',()=>renameBeer(decodeURIComponent(btn.dataset.name)));
+  });
+  list.querySelectorAll('.mini.del').forEach(btn=>{
+    btn.addEventListener('click',()=>openDeleteBeerModal(decodeURIComponent(btn.dataset.name)));
   });
 }
 
@@ -165,6 +177,21 @@ async function addBeer(){
   await action('add',name);
   document.getElementById('newBeer').value='';
   toast('Přidáno: '+name);
+}
+
+async function renameBeer(name){
+  const input=prompt('Nový název piva:', name);
+  if(input===null) return;              // cancelled
+  const newName=input.trim();
+  if(!newName){ toast('Zadej název'); return; }
+  if(newName===name) return;            // no change
+  try{
+    const res=await fetch('/api/admin/beers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'rename',name,newName})});
+    if(res.status===401){ showLogin(); return; }
+    if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error||''); }
+    toast('Přejmenováno');
+    load();
+  }catch(e){ toast(e.message?('Chyba: '+e.message):'Chyba při přejmenování'); }
 }
 
 function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
@@ -204,20 +231,32 @@ document.getElementById('newPass2').addEventListener('keydown',e=>{if(e.key==='E
 // try loading right away (in case a cookie already exists from before)
 load();
 
-// --- reset with confirmation (parameterized modal) ---
-let pendingScope = 'data';
-function openResetModal(scope){
-  pendingScope = scope;
-  const title = document.getElementById('modalTitle');
-  const text = document.getElementById('modalText');
-  if(scope === 'voters'){
-    title.textContent = 'Smazat všechny uživatele?';
-    text.innerHTML = 'Smažou se <strong>všechna přihlašovací jména hostů</strong>. Hlasy a žebříček zůstanou.<br>Hosté se budou muset přihlásit znovu. <strong>Nejde vrátit zpět</strong>.';
-  } else {
-    title.textContent = 'Opravdu vše smazat?';
-    text.innerHTML = 'Smažou se <strong>všechna piva i všechny hlasy</strong> všech hostů.<br>Tohle <strong>nejde vrátit zpět</strong>.';
-  }
+// --- confirmation modal (shared for reset and single-beer delete) ---
+// pending: {type:'reset', scope} or {type:'deleteBeer', name}. confirmLabel
+// is the text on the confirm button for that action.
+let pending = null;
+function openConfirm(p, title, textHtml, confirmLabel){
+  pending = p;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalText').innerHTML = textHtml;
+  document.getElementById('resetConfirm').textContent = confirmLabel;
   document.getElementById('resetOverlay').classList.add('show');
+}
+function openResetModal(scope){
+  if(scope === 'voters'){
+    openConfirm({type:'reset', scope}, 'Smazat všechny uživatele?',
+      'Smažou se <strong>všechna přihlašovací jména hostů</strong>. Hlasy a žebříček zůstanou.<br>Hosté se budou muset přihlásit znovu. <strong>Nejde vrátit zpět</strong>.',
+      'Ano, smazat vše');
+  } else {
+    openConfirm({type:'reset', scope:'data'}, 'Opravdu vše smazat?',
+      'Smažou se <strong>všechna piva i všechny hlasy</strong> všech hostů.<br>Tohle <strong>nejde vrátit zpět</strong>.',
+      'Ano, smazat vše');
+  }
+}
+function openDeleteBeerModal(name){
+  openConfirm({type:'deleteBeer', name}, 'Smazat pivo?',
+    'Smaže se pivo <strong>'+escapeHtml(name)+'</strong> i <strong>všechny jeho hlasy</strong>.<br>Tohle <strong>nejde vrátit zpět</strong>.',
+    'Ano, smazat');
 }
 document.getElementById('resetBtn').addEventListener('click', ()=>openResetModal('data'));
 document.getElementById('votersBtn').addEventListener('click', ()=>openResetModal('voters'));
@@ -228,15 +267,26 @@ document.getElementById('resetOverlay').addEventListener('click', (e)=>{
   if(e.target === e.currentTarget) e.currentTarget.classList.remove('show');
 });
 document.getElementById('resetConfirm').addEventListener('click', async ()=>{
+  if(!pending) return;
   const btn = document.getElementById('resetConfirm');
+  const label = btn.textContent;
   btn.disabled = true; btn.textContent = 'Mažu…';
   try{
-    const res = await fetch('/api/admin/reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:pendingScope})});
+    let res;
+    if(pending.type === 'deleteBeer'){
+      res = await fetch('/api/admin/beers', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete', name:pending.name})});
+    } else {
+      res = await fetch('/api/admin/reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:pending.scope})});
+    }
     if(res.status === 401){ toast('Nepřihlášen'); showLogin(); }
     else if(!res.ok){ throw new Error(); }
-    else{ toast(pendingScope==='voters' ? 'Uživatelé smazáni 🧹' : 'Vše smazáno 🧹'); load(); }
+    else{
+      if(pending.type === 'deleteBeer') toast('Pivo smazáno 🧹');
+      else toast(pending.scope==='voters' ? 'Uživatelé smazáni 🧹' : 'Vše smazáno 🧹');
+      load();
+    }
   }catch(e){ toast('Chyba při mazání, zkus znovu'); }
-  btn.disabled = false; btn.textContent = 'Ano, smazat vše';
+  btn.disabled = false; btn.textContent = label;
   document.getElementById('resetOverlay').classList.remove('show');
 });
 </script>
