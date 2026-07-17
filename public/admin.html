@@ -22,6 +22,11 @@
   .head h1::after{content:"";display:block;width:44px;height:5px;border-radius:99px;background:linear-gradient(90deg,#FFC94B,var(--amber));margin-top:10px;}
   .head p{color:var(--muted);font-size:.95rem;margin-top:8px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 18px;margin-bottom:14px;box-shadow:var(--shadow-card);}
+  /* loading state shown while the admin cookie is verified on page load */
+  .loader-card{text-align:center;padding:44px 20px;color:var(--muted);}
+  .loader-mug{font-size:2.6rem;animation:bob 1.1s ease-in-out infinite;}
+  .loader-card p{margin-top:10px;font-size:.95rem;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
   input{width:100%;font:inherit;font-size:1.05rem;padding:13px 15px;border:1.5px solid var(--line);border-radius:var(--r-md);background:#FDFBF7;color:var(--ink);}
   input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,147,12,.15);}
   button{font:inherit;cursor:pointer;border:none;border-radius:var(--r-md);transition:transform .12s;}
@@ -71,7 +76,12 @@
 <body>
   <div class="head"><h1>🍺 Administrace</h1><p>Piva, hlasující a nastavení akce</p></div>
 
-  <div class="card" id="loginCard">
+  <div class="card loader-card" id="loaderCard">
+    <div class="loader-mug">🍺</div>
+    <p>Načítám…</p>
+  </div>
+
+  <div class="card" id="loginCard" style="display:none;">
     <div style="margin-bottom:10px;font-weight:600;">Přihlášení</div>
     <input type="password" id="pass" placeholder="Heslo admina" autocomplete="current-password">
     <button class="btn-primary" style="width:100%;margin-top:10px;" id="loginBtn">Přihlásit</button>
@@ -288,11 +298,13 @@ async function renameVoter(voter){
   }catch(e){ toast(e.message?('Chyba: '+e.message):'Chyba při přejmenování'); }
 }
 
-function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
+function showLogin(){document.getElementById('loaderCard').style.display='none';
+  document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
   document.getElementById('votersCard').style.display='none';
   document.getElementById('passCard').style.display='none';document.getElementById('dangerCard').style.display='none';}
 // Reveal the management cards (display only). load()/loadVoters() fetch the data.
-function revealManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
+function revealManage(){document.getElementById('loaderCard').style.display='none';
+  document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
   document.getElementById('votersCard').style.display='block';
   document.getElementById('passCard').style.display='block';document.getElementById('dangerCard').style.display='block';}
 function showManage(){revealManage();load();loadVoters();}
