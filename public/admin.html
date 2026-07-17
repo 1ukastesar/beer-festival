@@ -141,6 +141,9 @@ async function load(){
     const res=await fetch('/api/admin/beers');
     if(res.status===401){ showLogin(); return; }
     const beers=await res.json();
+    // Cookie is still valid -> make sure the management view is shown (e.g.
+    // after an F5 reload, where we start on the login card by default).
+    revealManage();
     render(beers||[]);
   }catch(e){ showLogin(); }
 }
@@ -250,9 +253,11 @@ async function renameVoter(voter){
 function showLogin(){document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
   document.getElementById('votersCard').style.display='none';
   document.getElementById('passCard').style.display='none';document.getElementById('dangerCard').style.display='none';}
-function showManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
+// Reveal the management cards (display only). load()/loadVoters() fetch the data.
+function revealManage(){document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
   document.getElementById('votersCard').style.display='block';
-  document.getElementById('passCard').style.display='block';document.getElementById('dangerCard').style.display='block';load();loadVoters();}
+  document.getElementById('passCard').style.display='block';document.getElementById('dangerCard').style.display='block';}
+function showManage(){revealManage();load();loadVoters();}
 
 async function changePassword(){
   const cur=document.getElementById('curPass').value;
@@ -283,8 +288,11 @@ document.getElementById('newBeer').addEventListener('keydown',e=>{if(e.key==='En
 document.getElementById('passBtn').addEventListener('click',changePassword);
 document.getElementById('newPass2').addEventListener('keydown',e=>{if(e.key==='Enter')changePassword();});
 
-// try loading right away (in case a cookie already exists from before)
+// On load, fetch data right away. If the admin cookie is still valid, load()
+// reveals the management view; otherwise it falls back to the login form. This
+// keeps the admin logged in across an F5 reload.
 load();
+loadVoters();
 
 // --- confirmation modal (shared for reset, single-beer delete, voter kick) ---
 // pending: {type:'reset', scope} | {type:'deleteBeer', name} | {type:'kickVoter', voter}.
