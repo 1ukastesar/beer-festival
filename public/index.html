@@ -102,6 +102,9 @@
   .submit:active{transform:translateX(-50%) scale(.985);}
   .submit:disabled{opacity:.45;cursor:not-allowed;}
   .hint{text-align:center;font-size:.85rem;color:var(--muted);line-height:1.5;margin-top:14px;padding:0 8px;}
+  /* empty state when no beers are available to rate yet */
+  .nobeers{background:var(--card);border:1.5px dashed var(--line);border-radius:var(--r-lg);padding:36px 22px;text-align:center;color:var(--muted);font-size:1.02rem;line-height:1.6;box-shadow:var(--shadow-card);}
+  .nobeers .big{font-size:2rem;display:block;margin-bottom:10px;}
 
   /* ranking */
   .bhead{margin:4px 2px 14px;}
@@ -205,7 +208,19 @@ function editableList(){
 function renderCards(){
   const list = document.getElementById('list');
   list.innerHTML = '';
-  editableList().forEach(beer=>{
+  const beers = editableList();
+  const submitBtn = document.getElementById('submitBtn');
+  const hint = document.querySelector('.vote-wrap .hint');
+  // No beers to rate yet -> show a note and hide the submit button + hint.
+  if(beers.length === 0){
+    list.innerHTML = '<div class="nobeers"><span class="big">🍺</span>Zatím tu nejsou žádná piva k hodnocení.<br>Zkus to za chvíli.</div>';
+    if(submitBtn) submitBtn.style.display = 'none';
+    if(hint) hint.style.display = 'none';
+    return;
+  }
+  if(submitBtn) submitBtn.style.display = '';
+  if(hint) hint.style.display = '';
+  beers.forEach(beer=>{
     const inactive = myVotes[beer] && !myVotes[beer].active;
     const card = document.createElement('div');
     card.className = 'card' + (inactive ? ' inactive':'');
