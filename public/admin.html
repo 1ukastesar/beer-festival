@@ -104,6 +104,10 @@
       <button class="btn-primary" id="addBtn">Přidat</button>
     </div>
     <div class="io-row">
+      <button class="btn-sec" id="tapAllBtn">🍺 Narazit všechna</button>
+      <button class="btn-sec" id="untapAllBtn">Odrazit všechna</button>
+    </div>
+    <div class="io-row">
       <button class="btn-sec" id="exportBtn">⬇️ Export seznamu</button>
       <button class="btn-sec" id="importBtn">⬆️ Import seznamu</button>
       <input type="file" id="importFile" accept=".txt,text/plain" style="display:none">
@@ -397,9 +401,22 @@ function openKickModal(voter){
     'Odstraní se <strong>'+escapeHtml(voter)+'</strong> i <strong>všechny jeho hlasy</strong>.<br>Tohle <strong>nejde vrátit zpět</strong>.',
     'Ano, vyhodit');
 }
+function openTapAllModal(active){
+  if(active){
+    openConfirm({type:'tapAll', active:true}, 'Narazit všechna piva?',
+      'Všechna piva se označí jako <strong>na čepu</strong> a hosté je uvidí v hlasování.',
+      'Ano, narazit všechna');
+  } else {
+    openConfirm({type:'tapAll', active:false}, 'Odrazit všechna piva?',
+      'Všechna piva se <strong>sundají z čepu</strong>. Zůstanou v žebříčku na TV, ale hosté je neuvidí v hlasování.',
+      'Ano, odrazit všechna');
+  }
+}
 document.getElementById('resetBtn').addEventListener('click', ()=>openResetModal('data'));
 document.getElementById('usersBtn').addEventListener('click', ()=>openResetModal('users'));
 document.getElementById('votersBtn').addEventListener('click', ()=>openResetModal('voters'));
+document.getElementById('tapAllBtn').addEventListener('click', ()=>openTapAllModal(true));
+document.getElementById('untapAllBtn').addEventListener('click', ()=>openTapAllModal(false));
 document.getElementById('resetCancel').addEventListener('click', ()=>{
   document.getElementById('resetOverlay').classList.remove('show');
 });
@@ -410,13 +427,15 @@ document.getElementById('resetConfirm').addEventListener('click', async ()=>{
   if(!pending) return;
   const btn = document.getElementById('resetConfirm');
   const label = btn.textContent;
-  btn.disabled = true; btn.textContent = 'Mažu…';
+  btn.disabled = true; btn.textContent = pending.type==='tapAll' ? 'Pracuji…' : 'Mažu…';
   try{
     let res;
     if(pending.type === 'deleteBeer'){
       res = await fetch('/api/admin/beers', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete', name:pending.name})});
     } else if(pending.type === 'kickVoter'){
       res = await fetch('/api/admin/voters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'kick', voter:pending.voter})});
+    } else if(pending.type === 'tapAll'){
+      res = await fetch('/api/admin/beers', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:pending.active?'activate_all':'deactivate_all'})});
     } else {
       res = await fetch('/api/admin/reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:pending.scope})});
     }
@@ -425,13 +444,14 @@ document.getElementById('resetConfirm').addEventListener('click', async ()=>{
     else{
       if(pending.type === 'deleteBeer') toast('Pivo smazáno 🧹');
       else if(pending.type === 'kickVoter') toast('Hlasující vyhozen 🥾');
+      else if(pending.type === 'tapAll') toast(pending.active ? 'Všechna piva naražena 🍺' : 'Všechna piva odražena');
       else if(pending.scope === 'voters') toast('Uživatelé smazáni 🧹');
       else if(pending.scope === 'users') toast('Uživatelé i hlasy smazány 🧹');
       else toast('Vše smazáno 🧹');
       // reload both lists - most actions touch votes, which affects both.
       load(); loadVoters();
     }
-  }catch(e){ toast('Chyba při mazání, zkus znovu'); }
+  }catch(e){ toast(pending.type==='tapAll' ? 'Chyba, zkus znovu' : 'Chyba při mazání, zkus znovu'); }
   btn.disabled = false; btn.textContent = label;
   document.getElementById('resetOverlay').classList.remove('show');
 });

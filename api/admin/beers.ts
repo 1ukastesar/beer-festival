@@ -2,9 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, ensureSchema, isAdmin } from '../../lib/db.js';
 
 // GET  /api/admin/beers -> all beers with their state (active) - admin only
-// POST /api/admin/beers body: {"action":"add|activate|deactivate|delete|rename|import","name":"...","newName":"...","names":[...]}
+// POST /api/admin/beers body: {"action":"add|activate|deactivate|activate_all|deactivate_all|delete|rename|import","name":"...","newName":"...","names":[...]}
 //   rename uses newName; delete also removes that beer's votes; import takes a
-//   names array (one beer per line from an uploaded file), additive.
+//   names array (one beer per line from an uploaded file), additive;
+//   activate_all/deactivate_all flip the active flag on every beer.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
 
@@ -48,6 +49,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         FROM unnest(${names}::text[], ${sorts}::int[]) AS t(n, s)
         ON CONFLICT (name) DO UPDATE SET active = true
       `;
+      const rows = (await sql`
+        SELECT name, active FROM beers ORDER BY sort, name
+      `) as { name: string; active: boolean }[];
+      return res.json(rows);
+    }
+
+    // Bulk activate / deactivate every beer at once. No single name involved,
+    // so handled before the name validation below.
+    if (action === 'activate_all' || action === 'deactivate_all') {
+      const active = action === 'activate_all';
+      await sql`UPDATE beers SET active = ${active}`;
       const rows = (await sql`
         SELECT name, active FROM beers ORDER BY sort, name
       `) as { name: string; active: boolean }[];

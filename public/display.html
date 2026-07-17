@@ -73,14 +73,15 @@ let pageTimer=null;
 
 function pageCount(){ return Math.max(1, Math.ceil(data.length/PER_PAGE)); }
 
-// Lays out the rows for n beers on a page: up to 8 one column, more -> two.
-// The row font size scales to the ACTUAL available board height (not just
-// width), so everything fits even in a window that is not fullscreen.
+// Lays out the rows for n beers on a page in a single column, so even long
+// beer names get the full width. The row font size scales to the ACTUAL
+// available board height (not just width), so everything fits even in a
+// window that is not fullscreen.
 function layout(n){
-  const cols = n>8 ? 2 : 1;
-  const perCol = Math.ceil(n/cols);
+  const cols = 1;
+  const perCol = n;
   const board=document.getElementById('board');
-  board.style.gridTemplateColumns = cols===2 ? '1fr 1fr' : '1fr';
+  board.style.gridTemplateColumns = '1fr';
   // minmax(0,1fr) -> tracks may shrink below their content, so the rows never
   // grow past the board (and over the header/footer).
   board.style.gridTemplateRows = 'repeat('+perCol+',minmax(0,1fr))';
