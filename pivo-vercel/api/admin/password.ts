@@ -30,8 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!(await verifyPassword(current))) {
     return res.status(401).json({ error: 'špatné současné heslo' });
   }
-  if (next.length < 4 || next.length > 128) {
-    return res.status(400).json({ error: 'nové heslo musí mít 4–128 znaků' });
+  if (next.length < 8 || next.length > 128) {
+    return res.status(400).json({ error: 'nové heslo musí mít 8–128 znaků' });
   }
 
   await setAdminPassword(next);

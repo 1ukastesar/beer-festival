@@ -87,7 +87,7 @@
   <div class="card" id="passCard" style="display:none;">
     <div style="margin-bottom:12px;font-weight:600;">Změna hesla</div>
     <input type="password" id="curPass" placeholder="Současné heslo" autocomplete="current-password">
-    <input type="password" id="newPass" placeholder="Nové heslo (min. 4 znaky)" autocomplete="new-password" style="margin-top:10px;">
+    <input type="password" id="newPass" placeholder="Nové heslo (min. 8 znaků)" autocomplete="new-password" style="margin-top:10px;">
     <input type="password" id="newPass2" placeholder="Nové heslo znovu" autocomplete="new-password" style="margin-top:10px;">
     <button class="btn-primary" style="width:100%;margin-top:12px;" id="passBtn">Změnit heslo</button>
   </div>
@@ -177,7 +177,7 @@ async function changePassword(){
   const next=document.getElementById('newPass').value;
   const next2=document.getElementById('newPass2').value;
   if(!cur||!next){ toast('Vyplň obě hesla'); return; }
-  if(next.length<4){ toast('Nové heslo min. 4 znaky'); return; }
+  if(next.length<8){ toast('Nové heslo min. 8 znaků'); return; }
   if(next!==next2){ toast('Nová hesla se neshodují'); return; }
   const btn=document.getElementById('passBtn'); btn.disabled=true;
   try{
