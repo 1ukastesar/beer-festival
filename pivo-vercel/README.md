@@ -36,7 +36,18 @@ Live beer rating app. Guests rate beers from their phones, results show on a TV 
 ### 1. Create a Neon database
 
 - Sign up at [neon.tech](https://neon.tech) (free tier is enough).
-- Copy the **connection string** (starts with `postgresql://...`).
+- Create a new **project**. Pick a region near your guests; the default
+  Postgres version is fine. You can leave the default database/branch names.
+- **You do NOT need Neon Auth.** If the setup wizard offers "Auth" (Neon's
+  end-user login / Stack Auth integration), leave it off — this app has its own
+  admin password and a lightweight voter "name tag" system, so it only needs a
+  plain Postgres database. No other add-ons are required either.
+- Open **Connect** (or *Connection Details*) and copy the **connection string**.
+  The default (pooled) one is fine; it looks like
+  `postgresql://<user>:<password>@<host>-pooler.<region>.aws.neon.tech/<db>?sslmode=require`.
+  Keep `sslmode=require` — the serverless driver needs TLS.
+- You do **not** need to create any tables by hand; the schema is created
+  automatically on the first request (see step 5).
 
 ### 2. Deploy to Vercel
 
