@@ -172,8 +172,8 @@ function syncRotation(){
 }
 
 function render(fresh){
-  fresh.sort((a,b)=>b.avg-a.avg);
-  data=fresh;
+  // Show only beers that someone has already voted for.
+  data=fresh.filter(d=>d.count>0).sort((a,b)=>b.avg-a.avg);
   if(page>=pageCount()) page=0;      // if beers were removed, do not run past the range
   drawPage();
   syncRotation();
