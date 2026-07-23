@@ -50,6 +50,26 @@ export async function setAdminPassword(pw: string): Promise<void> {
   `;
 }
 
+// Generic key/value settings helpers (settings table).
+export async function getSetting(key: string): Promise<string | null> {
+  const rows = (await sql`SELECT value FROM settings WHERE key = ${key}`) as { value: string }[];
+  return rows[0]?.value ?? null;
+}
+export async function setSetting(key: string, value: string): Promise<void> {
+  await sql`
+    INSERT INTO settings (key, value) VALUES (${key}, ${value})
+    ON CONFLICT (key) DO UPDATE SET value = ${value}
+  `;
+}
+
+// Voting lock: when locked, the /api/vote endpoint rejects new/edited votes.
+export async function isVotingLocked(): Promise<boolean> {
+  return (await getSetting('voting_locked')) === '1';
+}
+export async function setVotingLocked(locked: boolean): Promise<void> {
+  await setSetting('voting_locked', locked ? '1' : '0');
+}
+
 // Set-Cookie header with the admin token (one place for both login and
 // password change).
 export function adminCookie(token: string): string {

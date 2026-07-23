@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql, ensureSchema } from '../lib/db.js';
+import { sql, ensureSchema, isVotingLocked } from '../lib/db.js';
 
 // POST /api/vote  body: {"voter":"<id>","votes":[{"beer":"Plzen","score":8,"note":"..."}]}
 //   Upsert: deletes the voter's previous votes and inserts the new set.
@@ -33,6 +33,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'method not allowed' });
+  }
+
+  // Admin can lock voting; when locked no new or edited votes are accepted.
+  if (await isVotingLocked()) {
+    return res.status(423).json({ error: 'hlasování je uzamčeno' });
   }
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;

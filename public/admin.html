@@ -56,6 +56,12 @@
   .addrow input{flex:1;min-width:0;}
   .io-row{display:flex;gap:8px;margin-top:10px;}
   .btn-sec{flex:1;padding:11px 8px;background:#F1EDE5;color:var(--ink);font-weight:600;font-size:.9rem;border-radius:var(--r-md);white-space:nowrap;}
+  /* voting lock banner */
+  .lock-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .lock-state{color:var(--green);font-size:.9rem;margin-top:3px;font-weight:600;}
+  .btn-lock{padding:12px 18px;background:var(--ink);color:#FFF6E9;font-weight:600;white-space:nowrap;}
+  .lock-card.locked{border-color:#F0C5BB;background:#FDF6F4;}
+  .lock-card.locked .lock-state{color:var(--red);}
   .hint{text-align:center;color:var(--muted);font-size:.85rem;line-height:1.5;margin-top:14px;}
   .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#FFF6E9;padding:12px 20px;border-radius:999px;font-weight:600;font-size:.95rem;box-shadow:var(--shadow-pop);opacity:0;transition:all .25s;z-index:50;pointer-events:none;}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
@@ -93,6 +99,16 @@
     <div style="margin-bottom:10px;font-weight:600;">Přihlášení</div>
     <input type="password" id="pass" placeholder="Heslo admina" autocomplete="current-password">
     <button class="btn-primary" style="width:100%;margin-top:10px;" id="loginBtn">Přihlásit</button>
+  </div>
+
+  <div class="card lock-card" id="lockCard" style="display:none;">
+    <div class="lock-row">
+      <div>
+        <div style="font-weight:600;">Hlasování</div>
+        <div class="lock-state" id="lockState">Načítám…</div>
+      </div>
+      <button class="btn-lock" id="lockBtn">…</button>
+    </div>
   </div>
 
   <div class="manage-grid">
@@ -313,15 +329,53 @@ async function renameVoter(voter){
 }
 
 function showLogin(){document.getElementById('loaderCard').style.display='none';
-  document.getElementById('loginCard').style.display='block';document.getElementById('manageCard').style.display='none';
+  document.getElementById('loginCard').style.display='block';document.getElementById('lockCard').style.display='none';
+  document.getElementById('manageCard').style.display='none';
   document.getElementById('votersCard').style.display='none';
   document.getElementById('passCard').style.display='none';document.getElementById('dangerCard').style.display='none';}
 // Reveal the management cards (display only). load()/loadVoters() fetch the data.
 function revealManage(){document.getElementById('loaderCard').style.display='none';
-  document.getElementById('loginCard').style.display='none';document.getElementById('manageCard').style.display='block';
+  document.getElementById('loginCard').style.display='none';document.getElementById('lockCard').style.display='block';
+  document.getElementById('manageCard').style.display='block';
   document.getElementById('votersCard').style.display='block';
   document.getElementById('passCard').style.display='block';document.getElementById('dangerCard').style.display='block';}
-function showManage(){revealManage();load();loadVoters();}
+function showManage(){revealManage();load();loadVoters();loadVoting();}
+
+let votingLocked=false;
+async function loadVoting(){
+  try{
+    const res=await fetch('/api/admin/voting');
+    if(res.status===401){ showLogin(); return; }
+    renderVoting(!!(await res.json()).votingLocked);
+  }catch(e){}
+}
+function renderVoting(locked){
+  votingLocked=locked;
+  const state=document.getElementById('lockState');
+  const btn=document.getElementById('lockBtn');
+  const card=document.getElementById('lockCard');
+  if(locked){
+    state.textContent='🔒 Uzamčeno – hosté nemohou hlasovat';
+    btn.textContent='Odemknout hlasování';
+    card.classList.add('locked');
+  }else{
+    state.textContent='🟢 Otevřeno – hosté mohou hlasovat';
+    btn.textContent='🔒 Zamknout hlasování';
+    card.classList.remove('locked');
+  }
+}
+async function toggleVoting(){
+  const btn=document.getElementById('lockBtn'); btn.disabled=true;
+  try{
+    const res=await fetch('/api/admin/voting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({locked:!votingLocked})});
+    if(res.status===401){ showLogin(); return; }
+    if(!res.ok) throw new Error();
+    const j=await res.json();
+    renderVoting(!!j.votingLocked);
+    toast(j.votingLocked?'Hlasování uzamčeno 🔒':'Hlasování otevřeno 🟢');
+  }catch(e){ toast('Chyba, zkus znovu'); }
+  btn.disabled=false;
+}
 
 async function changePassword(){
   const cur=document.getElementById('curPass').value;
@@ -358,12 +412,14 @@ document.getElementById('importFile').addEventListener('change',e=>{
 });
 document.getElementById('passBtn').addEventListener('click',changePassword);
 document.getElementById('newPass2').addEventListener('keydown',e=>{if(e.key==='Enter')changePassword();});
+document.getElementById('lockBtn').addEventListener('click',toggleVoting);
 
 // On load, fetch data right away. If the admin cookie is still valid, load()
 // reveals the management view; otherwise it falls back to the login form. This
 // keeps the admin logged in across an F5 reload.
 load();
 loadVoters();
+loadVoting();
 
 // --- confirmation modal (shared for reset, single-beer delete, voter kick) ---
 // pending: {type:'reset', scope} | {type:'deleteBeer', name} | {type:'kickVoter', voter}.

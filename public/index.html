@@ -169,7 +169,7 @@
   <div class="board-wrap" id="boardWrap">
     <div class="bhead">
       <h2>Žebříček</h2>
-      <div class="sub">Klikni na pivo pro úpravu tvého hodnocení</div>
+      <div class="sub" id="boardSub">Klikni na pivo pro úpravu tvého hodnocení</div>
     </div>
     <div id="board"></div>
     <button class="edit" id="editBtn">Upravit moje hodnocení</button>
@@ -192,6 +192,7 @@ let myVotes = {};
 let selection = {};   // {beer: {score, note}} - current selection (before submit)
 let pollTimer = null;
 let lastResults = []; // last results from the server for the sticky leaderboard
+let votingLocked = false; // admin can lock voting; guests then only see the ranking
 
 function toast(msg){
   const t = document.getElementById('toast');
@@ -324,6 +325,13 @@ async function submitVotes(){
       showLogin('Tvoje jméno už neexistuje, zaregistruj se znovu.');
       return;
     }
+    if(res.status === 423){
+      // admin locked voting after the form was loaded
+      votingLocked = true;
+      toast('Hlasování je uzamčeno 🔒');
+      showBoard();
+      return;
+    }
     if(!res.ok) throw new Error(await res.text());
     const j = await res.json().catch(()=>({}));
     // some beers may have gone off tap / been removed between load and submit;
@@ -355,6 +363,11 @@ function showBoard(){
   document.getElementById('voteWrap').classList.remove('show');
   document.getElementById('boardWrap').classList.add('show');
   document.getElementById('stickyboard').classList.remove('show');
+  // When voting is locked, hide the edit button and swap the hint.
+  document.getElementById('editBtn').style.display = votingLocked ? 'none' : '';
+  document.getElementById('boardSub').textContent = votingLocked
+    ? '🔒 Hlasování je uzamčeno'
+    : 'Klikni na pivo pro úpravu tvého hodnocení';
   if(!pollTimer){
     pollBoard();
     pollTimer = setInterval(pollBoard, 2500);
@@ -372,6 +385,7 @@ async function pollBoard(){
 }
 
 function showVote(focusBeer){
+  if(votingLocked){ showBoard(); return; }   // no editing while locked
   document.getElementById('boardWrap').classList.remove('show');
   document.getElementById('voteWrap').classList.add('show');
   // the sticky leaderboard while editing shows MY ratings (not the overall ranking)
@@ -525,17 +539,24 @@ async function doLogin(){
 
 async function startApp(){
   showLoader(true);
-  // beers and my votes in parallel - saves one round-trip
-  const [beersRes] = await Promise.all([
+  // beers, voting status and my votes in parallel - saves round-trips
+  const [beersRes, status] = await Promise.all([
     fetch('/api/beers').then(r => r.json()),
+    fetch('/api/status').then(r => r.json()).catch(() => ({})),
     loadMyVotes()
   ]);
   activeBeers = beersRes;
+  votingLocked = !!status.votingLocked;
   renderCards();
   showLoader(false);
-  document.getElementById('voteWrap').classList.add('show');
-  // if they already voted before, show the ranking right away (with the option to edit)
-  if(Object.keys(myVotes).length > 0){ showBoard(); }
+  if(votingLocked){
+    // Voting is locked -> only show the ranking, no form or editing.
+    showBoard();
+  } else {
+    document.getElementById('voteWrap').classList.add('show');
+    // if they already voted before, show the ranking right away (with the option to edit)
+    if(Object.keys(myVotes).length > 0){ showBoard(); }
+  }
 }
 
 async function init(){
